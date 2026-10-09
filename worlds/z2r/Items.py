@@ -57,6 +57,8 @@ ITEM_TABLE: dict[str, ItemData] = {
     "Red Magic Jar": ItemData(0x11, FILLER),
     "1-Up": ItemData(0x12, FILLER),
     "Small P-Bag": ItemData(0x0A, FILLER),
+    "Large P-Bag": ItemData(0x0C, FILLER),
+    "Small Key": ItemData(0x08, FILLER),
 }
 
 ITEM_NAME_TO_ID: dict[str, int] = {name: BASE_ITEM_ID + data.collectable for name, data in ITEM_TABLE.items()}
@@ -67,7 +69,7 @@ CONTAINER_ITEMS: dict[str, tuple[int, int]] = {
     "Heart Container": (0x0784, 8),
 }
 
-FILLER_ITEMS = ["Blue Magic Jar", "Red Magic Jar", "1-Up", "Small P-Bag"]
+FILLER_ITEMS = ["Blue Magic Jar", "Red Magic Jar", "1-Up", "Small P-Bag", "Large P-Bag", "Small Key"]
 
 # Order used to decide which items to keep when there are fewer locations than items
 POOL_PRIORITY = [name for name, data in ITEM_TABLE.items() if data.classification == PROG] + \
