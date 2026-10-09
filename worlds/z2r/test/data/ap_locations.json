@@ -1,0 +1,248 @@
+{
+  "seed": "277201822",
+  "flags": "RANBvv1hAjAKAFi7JmGbriwDq\u002B\u002BmiVWCmFWcCB7AAThADh",
+  "description": "Each entry is a location that holds an AP item. Read the byte at address and test it against mask: the location has been checked when (byte \u0026 mask) is 0 (collectedBitValue 0) or non-zero (collectedBitValue 1). nodeId matches the node ids in the requirements file.",
+  "locations": [
+    {
+      "nodeId": "WEST_CAVE_TROPHY",
+      "name": "WEST_CAVE_TROPHY",
+      "kind": "ItemPresence",
+      "address": 1552,
+      "mask": 8,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_CAVE_MAGIC_CONTAINER",
+      "name": "WEST_CAVE_MAGIC_CONTAINER",
+      "kind": "ItemPresence",
+      "address": 1558,
+      "mask": 1,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_GRASS",
+      "name": "WEST_GRASS",
+      "kind": "ItemPresence",
+      "address": 1555,
+      "mask": 32,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_CAVE_PBAG",
+      "name": "WEST_CAVE_PBAG",
+      "kind": "ItemPresence",
+      "address": 1542,
+      "mask": 4,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_CAVE_MEDICINE",
+      "name": "WEST_CAVE_MEDICINE",
+      "kind": "ItemPresence",
+      "address": 1543,
+      "mask": 1,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_CAVE_HEART_CONTAINER",
+      "name": "WEST_CAVE_HEART_CONTAINER",
+      "kind": "ItemPresence",
+      "address": 1544,
+      "mask": 4,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_TOWN_RAURU:map36",
+      "name": "WEST_TOWN_RAURU Rauru Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 8,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_TOWN_RUTO:map37",
+      "name": "WEST_TOWN_RUTO Ruto Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 4,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_TOWN_SARIA_NORTH:map30",
+      "name": "WEST_TOWN_SARIA_NORTH Saria Table",
+      "kind": "Misc",
+      "address": 1941,
+      "mask": 2,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_TOWN_SARIA_NORTH:map38",
+      "name": "WEST_TOWN_SARIA_NORTH Saria Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 2,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_BAGU_HOUSE:map31",
+      "name": "WEST_BAGU_HOUSE Bagu Interior",
+      "kind": "Misc",
+      "address": 1941,
+      "mask": 1,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_TOWN_MIDO:map39",
+      "name": "WEST_TOWN_MIDO Mido Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 1,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_TOWN_MIDO:map44",
+      "name": "WEST_TOWN_MIDO Downstab Guy",
+      "kind": "Misc",
+      "address": 1941,
+      "mask": 8,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "WEST_PALACE1:room2",
+      "name": "WEST_PALACE1 item room",
+      "kind": "ItemPresence",
+      "address": 1665,
+      "mask": 16,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_PALACE2:room2",
+      "name": "WEST_PALACE2 item room",
+      "kind": "ItemPresence",
+      "address": 1670,
+      "mask": 1,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "WEST_PALACE3:room2",
+      "name": "WEST_PALACE3 item room",
+      "kind": "ItemPresence",
+      "address": 1697,
+      "mask": 16,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "EAST_WATER",
+      "name": "EAST_WATER",
+      "kind": "ItemPresence",
+      "address": 1603,
+      "mask": 4,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "EAST_DESERT",
+      "name": "EAST_DESERT",
+      "kind": "ItemPresence",
+      "address": 1623,
+      "mask": 64,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "EAST_TOWN_NABOORU:map13",
+      "name": "EAST_TOWN_NABOORU Nabooru Fountain",
+      "kind": "Misc",
+      "address": 1941,
+      "mask": 128,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "EAST_TOWN_NABOORU:map40",
+      "name": "EAST_TOWN_NABOORU Nabooru Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 128,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "EAST_TOWN_DARUNIA:map41",
+      "name": "EAST_TOWN_DARUNIA Darunia Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 64,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "EAST_TOWN_DARUNIA:map45",
+      "name": "EAST_TOWN_DARUNIA Upstab Guy",
+      "kind": "Misc",
+      "address": 1941,
+      "mask": 4,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "EAST_TOWN_NEW_KASUTO:map46",
+      "name": "EAST_TOWN_NEW_KASUTO Granny\u0027s Basement",
+      "kind": "ItemPresence",
+      "address": 1655,
+      "mask": 64,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "EAST_TOWN_NEW_KASUTO:map42",
+      "name": "EAST_TOWN_NEW_KASUTO New Kasuto Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 32,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "EAST_TOWN_NEW_KASUTO:map47",
+      "name": "EAST_TOWN_NEW_KASUTO Spell Tower",
+      "kind": "ItemPresence",
+      "address": 1655,
+      "mask": 4,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "EAST_TOWN_OLD_KASUTO:map43",
+      "name": "EAST_TOWN_OLD_KASUTO Old Kasuto Wizard",
+      "kind": "Wizard",
+      "address": 1914,
+      "mask": 16,
+      "collectedBitValue": 1
+    },
+    {
+      "nodeId": "EAST_PALACE5:room2",
+      "name": "EAST_PALACE5 item room",
+      "kind": "ItemPresence",
+      "address": 1676,
+      "mask": 8,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "MI_MAGIC_CONTAINER_DROP",
+      "name": "MI_MAGIC_CONTAINER_DROP",
+      "kind": "ItemPresence",
+      "address": 1586,
+      "mask": 64,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "MI_PALACE4:room2",
+      "name": "MI_PALACE4 item room",
+      "kind": "ItemPresence",
+      "address": 1702,
+      "mask": 128,
+      "collectedBitValue": 0
+    },
+    {
+      "nodeId": "DM_HAMMER_CAVE",
+      "name": "DM_HAMMER_CAVE",
+      "kind": "ItemPresence",
+      "address": 1578,
+      "mask": 1,
+      "collectedBitValue": 0
+    }
+  ],
+  "warnings": []
+}
