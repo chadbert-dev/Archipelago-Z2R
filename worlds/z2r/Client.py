@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING
+from typing import NamedTuple, TYPE_CHECKING
 
 from NetUtils import ClientStatus
 
@@ -29,13 +29,36 @@ FLAGS_SIZE = 0x0200
 # Nonzero bit 7 once the ending sequence has started (GameComplete in the Z2R app's ram.inc)
 GAME_COMPLETE_ADDRESS = 0x0128
 GAME_COMPLETE_MASK = 0x80
+
+
+class Consumable(NamedTuple):
+    address: int  # RAM address of the count
+    maximum: int  # the most the client will raise the count to
+    amount: int = 1  # added per item received
+    scale_address: int | None = None  # if set, the amount is multiplied by the byte at this address
+    size: int = 1  # bytes in the count, stored big endian (high byte at the lowest address)
+    xp_table_index: int | None = None  # if set, the amount is the P-bag XP value for this bag size (0 = small)
+
+
 # Items that are spent in game, so they are added one at a time instead of being set. The number already given is
 # kept in the server's data storage so a reconnect doesn't give them again.
-# name -> (RAM address of the count, maximum the client will raise it to)
-CONSUMABLE_ITEMS: dict[str, tuple[int, int]] = {
-    "Small Key": (0x0793, 64),
-    "1-Up": (0x0700, 99),
+CONSUMABLE_ITEMS: dict[str, Consumable] = {
+    "Small Key": Consumable(0x0793, 64),
+    "1-Up": Consumable(0x0700, 99),
+    # $070c is the magic the game still has to add to the player's magic, which it pays out over the next frames and
+    # clamps to the maximum. The jar pickup routine at $E84B adds to it: 16 for a blue jar, 16 per magic container
+    # for a red jar ($0783 is the number of magic containers).
+    # $0755/$0756 (high, low) is the experience the game still has to award, like the magic buffer above.
+    # P-bags give an amount from a 4 entry table in the ROM (one byte per bag size), which the Z2R app can shuffle.
+    "Small P-Bag": Consumable(0x0755, 0xFFFF, size=2, xp_table_index=0),
+    "Large P-Bag": Consumable(0x0755, 0xFFFF, size=2, xp_table_index=2),
+    "Blue Magic Jar": Consumable(0x070C, 0xFF, 16),
+    "Red Magic Jar": Consumable(0x070C, 0xFF, 16, scale_address=0x0783),
 }
+# CPU $E7F0 in the ROM's fixed bank: one byte per P-bag size, an index into XP_VALUES
+PBAG_XP_TABLE_ADDRESS = 0x1E7F0  # in the "PRG ROM" domain
+# The experience each table index stands for (XP_VALUES in the Z2R app's DropRandomizer.cs)
+XP_VALUES = [0, 2, 3, 5, 10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000]
 # 1 while the main game loop is running. Item presence bits read as "collected" while the title screen is up,
 # so nothing is read or written unless this is 1.
 GAME_EVENT_ADDRESS = 0x076C
@@ -152,7 +175,8 @@ class Z2RClient(BizHawkClient):
 
     async def consumable_check(self, ctx: "BizHawkClientContext", name: str) -> None:
         """Give one received copy of a consumable item per call, as long as the game can hold it."""
-        address, maximum = CONSUMABLE_ITEMS[name]
+        consumable = CONSUMABLE_ITEMS[name]
+        address = consumable.address
         storage_key = f"z2r_given_{name.lower().replace(' ', '_')}_{ctx.team}_{ctx.slot}"
         ctx.set_notify(storage_key)
         if storage_key not in ctx.stored_data:
@@ -164,13 +188,27 @@ class Z2RClient(BizHawkClient):
         if given >= received:
             return
 
-        count = (await bizhawk.read(ctx.bizhawk_ctx, [(address, 1, RAM)]))[0][0]
-        if count >= maximum:
-            return  # wait until one is spent
-        if not await bizhawk.guarded_write(
-                ctx.bizhawk_ctx, [(address, [count + 1], RAM)],
-                [(GAME_EVENT_ADDRESS, [GAME_EVENT_MAIN_LOOP], RAM), (address, [count], RAM)]):
-            return
+        reads = [(address, consumable.size, RAM)]
+        if consumable.scale_address is not None:
+            reads.append((consumable.scale_address, 1, RAM))
+        if consumable.xp_table_index is not None:
+            reads.append((PBAG_XP_TABLE_ADDRESS + consumable.xp_table_index, 1, "PRG ROM"))
+        values = await bizhawk.read(ctx.bizhawk_ctx, reads)
+        count_bytes = values[0]
+        count = int.from_bytes(count_bytes, "big")
+        amount = consumable.amount
+        if consumable.scale_address is not None:
+            amount *= values[1][0]
+        if consumable.xp_table_index is not None:
+            amount = XP_VALUES[values[-1][0] & 0x0F]
+        if amount and count + amount > consumable.maximum:
+            return  # wait until some is spent
+        if amount:  # an amount of 0 (e.g. a 0 XP bag) has nothing to write but still counts as given
+            new_bytes = list((count + amount).to_bytes(consumable.size, "big"))
+            if not await bizhawk.guarded_write(
+                    ctx.bizhawk_ctx, [(address, new_bytes, RAM)],
+                    [(GAME_EVENT_ADDRESS, [GAME_EVENT_MAIN_LOOP], RAM), (address, list(count_bytes), RAM)]):
+                return
 
         ctx.stored_data[storage_key] = given + 1
         await ctx.send_msgs([{"cmd": "Set", "key": storage_key, "default": 0, "want_reply": False,
