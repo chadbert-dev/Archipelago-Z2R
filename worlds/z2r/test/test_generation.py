@@ -20,3 +20,8 @@ class TestGeneration(Z2RTestBase):
         self.assertBeatable(False)
         self.collect_all_but([])
         self.assertBeatable(True)
+
+
+class TestOtherSeed(TestGeneration):
+    """A seed whose locations differ from the first sample's, to catch locations missing from the static table."""
+    sample = "sample2.yaml"

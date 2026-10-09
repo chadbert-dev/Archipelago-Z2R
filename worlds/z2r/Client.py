@@ -63,10 +63,14 @@ XP_VALUES = [0, 2, 3, 5, 10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000]
 # 0xD0 + a 5 bit value, with 0xD0-0xD9 being digits and 0xDA onwards letters.
 HASH_ADDRESS = 0x17C1C  # in the "PRG ROM" domain
 HASH_LENGTH = 6
-# 1 while the main game loop is running. Item presence bits read as "collected" while the title screen is up,
-# so nothing is read or written unless this is 1.
+# The game only counts as "in control of Link" when the game event is the main loop and the game mode has settled
+# (GameMode == GameModeCurrent) on the overworld or a side view. Item presence bits read as "collected" and the flag
+# area is meaningless on the title screen and file select, so nothing is read or written otherwise.
 GAME_EVENT_ADDRESS = 0x076C
 GAME_EVENT_MAIN_LOOP = 1
+GAME_EVENT_ENDING = (3, 4)  # waking up Zelda, rolling the credits
+GAME_MODE_ADDRESS = 0x0736  # followed by GameModeCurrent at 0x0737
+GAME_MODES_IN_CONTROL = (0x05, 0x0B)  # overworld, side view (towns, palaces, caves, encounters)
 
 
 class Z2RClient(BizHawkClient):
@@ -77,12 +81,16 @@ class Z2RClient(BizHawkClient):
     rom_seed: str
     rom_hash: str
     seed_mismatch_logged: bool
+    guards: list[tuple[int, list[int], str]]
+    last_state: tuple[int, int, int] | None
 
     def __init__(self) -> None:
         self.slot_name = ""
         self.rom_seed = ""
         self.rom_hash = ""
         self.seed_mismatch_logged = False
+        self.guards = []
+        self.last_state = None
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
@@ -132,12 +140,30 @@ class Z2RClient(BizHawkClient):
             return
 
         try:
+            event_bytes, mode_bytes = await bizhawk.read(
+                ctx.bizhawk_ctx, [(GAME_EVENT_ADDRESS, 1, RAM), (GAME_MODE_ADDRESS, 2, RAM)])
+            event, mode, mode_current = event_bytes[0], mode_bytes[0], mode_bytes[1]
+            if (event, mode, mode_current) != self.last_state:
+                self.last_state = (event, mode, mode_current)
+                logger.debug(f"Z2R game event {event:#04x}, game mode {mode:#04x}/{mode_current:#04x}")
+
+            if event in GAME_EVENT_ENDING:
+                # Link can't be controlled during the ending, but the game complete flag is set by then
+                complete = (await bizhawk.read(ctx.bizhawk_ctx, [(GAME_COMPLETE_ADDRESS, 1, RAM)]))[0][0]
+                if complete & GAME_COMPLETE_MASK and not ctx.finished_game:
+                    await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+                    ctx.finished_game = True
+                return
+
+            if event != GAME_EVENT_MAIN_LOOP or mode != mode_current or mode not in GAME_MODES_IN_CONTROL:
+                return  # not in control of Link (title screen, file select, loading, dying, ...)
+
+            # Every read and write below only goes through if the game is still in this exact state
+            self.guards = [(GAME_EVENT_ADDRESS, [event], RAM), (GAME_MODE_ADDRESS, [mode, mode_current], RAM)]
             state = await bizhawk.guarded_read(
-                ctx.bizhawk_ctx,
-                [(FLAGS_START, FLAGS_SIZE, RAM), (GAME_COMPLETE_ADDRESS, 1, RAM)],
-                [(GAME_EVENT_ADDRESS, [GAME_EVENT_MAIN_LOOP], RAM)])
+                ctx.bizhawk_ctx, [(FLAGS_START, FLAGS_SIZE, RAM), (GAME_COMPLETE_ADDRESS, 1, RAM)], self.guards)
             if state is None:
-                return  # not in the main game loop
+                return
             flags, game_complete = state[0], state[1][0]
 
             await self.location_check(ctx, flags)
@@ -204,7 +230,7 @@ class Z2RClient(BizHawkClient):
 
         writes = [(address, [value], RAM) for address, value in desired.items() if value != current[address]]
         if writes:
-            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, [(GAME_EVENT_ADDRESS, [GAME_EVENT_MAIN_LOOP], RAM)])
+            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
 
     async def consumable_check(self, ctx: "BizHawkClientContext", name: str) -> None:
         """Give one received copy of a consumable item per call, as long as the game can hold it."""
@@ -240,7 +266,7 @@ class Z2RClient(BizHawkClient):
             new_bytes = list((count + amount).to_bytes(consumable.size, "big"))
             if not await bizhawk.guarded_write(
                     ctx.bizhawk_ctx, [(address, new_bytes, RAM)],
-                    [(GAME_EVENT_ADDRESS, [GAME_EVENT_MAIN_LOOP], RAM), (address, list(count_bytes), RAM)]):
+                    [*self.guards, (address, list(count_bytes), RAM)]):
                 return
 
         ctx.stored_data[storage_key] = given + 1
