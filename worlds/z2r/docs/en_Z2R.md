@@ -1,4 +1,4 @@
-# Zelda II: Z2R
+# Z2R
 
 ## Where is the options page?
 

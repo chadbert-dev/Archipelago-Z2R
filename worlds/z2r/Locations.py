@@ -9,7 +9,7 @@ GOAL_NODE = "EAST_GREAT_PALACE:room1"
 
 
 class Z2RLocation(Location):
-    game = "Zelda II: Z2R"
+    game = "Z2R"
 
 
 # The set of locations does not change between seeds, only the requirements do. IDs are the index in
@@ -17,10 +17,9 @@ class Z2RLocation(Location):
 LOCATION_NAMES: list[str] = json.loads(pkgutil.get_data(__name__, "data/locations.json"))
 LOCATION_NAME_TO_ID: dict[str, int] = {name: BASE_LOCATION_ID + i for i, name in enumerate(LOCATION_NAMES)}
 
-# Each palace boss drops a crystal. The Great Palace, Thunderbird and Dark Link need all of them.
-# TODO: the Z2R app's output does not say how many crystals are required, and the count is configurable there.
-# Add it to the requirements/ap_locations output and read it from the YAML instead of this constant.
-CRYSTALS_REQUIRED = 6
+# Each palace boss drops a crystal. The Great Palace, Thunderbird and Dark Link need crystals_required of them.
+# Bump this when the layout of the YAML written by the Z2R app changes.
+FORMAT_VERSION = 1
 CRYSTAL_ITEM = "Crystal"
 PALACE_BOSS_NODES = [
     "WEST_PALACE1:room1",

@@ -59,6 +59,10 @@ CONSUMABLE_ITEMS: dict[str, Consumable] = {
 PBAG_XP_TABLE_ADDRESS = 0x1E7F0  # in the "PRG ROM" domain
 # The experience each table index stands for (XP_VALUES in the Z2R app's DropRandomizer.cs)
 XP_VALUES = [0, 2, 3, 5, 10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000]
+# The title screen hash: 6 characters at file offset 0x17C2C, each followed by a spacer tile (so 12 bytes). A tile is
+# 0xD0 + a 5 bit value, with 0xD0-0xD9 being digits and 0xDA onwards letters.
+HASH_ADDRESS = 0x17C1C  # in the "PRG ROM" domain
+HASH_LENGTH = 6
 # 1 while the main game loop is running. Item presence bits read as "collected" while the title screen is up,
 # so nothing is read or written unless this is 1.
 GAME_EVENT_ADDRESS = 0x076C
@@ -66,19 +70,26 @@ GAME_EVENT_MAIN_LOOP = 1
 
 
 class Z2RClient(BizHawkClient):
-    game = "Zelda II: Z2R"
+    game = "Z2R"
     system = "NES"
 
     slot_name: str
+    rom_seed: str
+    rom_hash: str
+    seed_mismatch_logged: bool
 
     def __init__(self) -> None:
         self.slot_name = ""
+        self.rom_seed = ""
+        self.rom_hash = ""
+        self.seed_mismatch_logged = False
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
             if await bizhawk.get_memory_size(ctx.bizhawk_ctx, "PRG ROM") < SIGNATURE_ADDRESS + SIGNATURE_SIZE:
                 return False
-            block = (await bizhawk.read(ctx.bizhawk_ctx, [(SIGNATURE_ADDRESS, SIGNATURE_SIZE, "PRG ROM")]))[0]
+            block, hash_tiles = await bizhawk.read(ctx.bizhawk_ctx, [
+                (SIGNATURE_ADDRESS, SIGNATURE_SIZE, "PRG ROM"), (HASH_ADDRESS, HASH_LENGTH * 2, "PRG ROM")])
         except bizhawk.RequestFailedError:
             return False
 
@@ -86,16 +97,38 @@ class Z2RClient(BizHawkClient):
             return False
 
         self.slot_name = block[0x08:0x18].split(b"\x00")[0].decode("ascii", errors="replace")
+        self.rom_seed = block[0x18:0x38].split(b"\x00")[0].decode("ascii", errors="replace")
+        self.rom_hash = "".join(self.decode_hash_tile(hash_tiles[i * 2]) for i in range(HASH_LENGTH))
+        self.seed_mismatch_logged = False
         ctx.game = self.game
         ctx.items_handling = 0b111
         ctx.want_slot_data = True
         return True
+
+    @staticmethod
+    def decode_hash_tile(tile: int) -> str:
+        if 0xD0 <= tile <= 0xD9:
+            return chr(tile - 0xA0)
+        if 0xDA <= tile <= 0xF3:
+            return chr(tile - 0x99)
+        return "?"
 
     async def set_auth(self, ctx: "BizHawkClientContext") -> None:
         ctx.auth = self.slot_name
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
         if ctx.server is None or ctx.server.socket.closed or ctx.slot_data is None:
+            return
+
+        # The signature holds the first 32 characters of the seed, with non-ASCII characters replaced by "?"
+        expected_seed = "".join(c if " " <= c <= "~" else "?" for c in ctx.slot_data.get("rom_seed", ""))[:32]
+        expected_hash = ctx.slot_data.get("rom_hash", "")
+        if (expected_seed and expected_seed != self.rom_seed) or (expected_hash and expected_hash != self.rom_hash):
+            if not self.seed_mismatch_logged:
+                logger.error(f"This ROM is seed '{self.rom_seed}' with hash '{self.rom_hash}', but the multiworld "
+                             f"expects seed '{expected_seed}' with hash '{expected_hash}'. Open the ROM that "
+                             f"matches your YAML.")
+                self.seed_mismatch_logged = True
             return
 
         try:

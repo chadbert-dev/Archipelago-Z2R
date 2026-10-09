@@ -1,4 +1,4 @@
-# Zelda II: Z2R Multiworld Setup Guide
+# Z2R Multiworld Setup Guide
 
 ## Required software
 
@@ -10,9 +10,8 @@
 
 1. In the Z2R app, enable Archipelago mode, enter your slot name (up to 16 characters) and generate a seed. The app
    writes the ROM along with `_requirements.json` and `_ap_locations.json` files.
-2. Turn the two JSON files into YAML options with
-   `python -m worlds.z2r.convert <seed>_requirements.json <seed>_ap_locations.json`, and put the result under
-   `Zelda II: Z2R:` in a player YAML. The YAML's player name must match the slot name in the ROM.
+2. The app also writes a player YAML. Its `name` must match the slot name in the ROM, and its `rom_seed` and `hash` must match
+   the seed and title screen hash of the ROM, or the client will refuse the ROM.
 3. Generate the multiworld and host it.
 
 ## Connecting
@@ -25,8 +24,7 @@
 
 ## Notes
 
-- The Great Palace, Thunderbird and Dark Link need 6 crystals (every palace boss). This is fixed at 6 for now because
-  the Z2R app does not yet include the crystal count in its output.
+- The Great Palace, Thunderbird and Dark Link need `crystals_required` crystals (one per palace boss, up to 6).
 - Set `replace_fire_with_dash: true` only if the seed was generated with Dash replacing Fire. Otherwise logic that
   needs Dash uses the Fairy spell.
 - Defeating Thunderbird requires the Thunder spell, which is hardcoded because the Z2R app's requirements output

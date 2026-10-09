@@ -5,7 +5,7 @@ from BaseClasses import CollectionState, Item, ItemClassification, Region, Tutor
 from worlds.AutoWorld import WebWorld, World
 from .Items import (CONTAINER_ITEMS, CONTAINER_REQUIREMENTS, FILLER_ITEMS, ITEM_NAME_TO_ID, ITEM_TABLE, POOL_PRIORITY,
                     REQUIREMENT_ITEMS, Z2RItem)
-from .Locations import (CRYSTAL_ITEM, CRYSTALS_REQUIRED, GOAL_EVENT, GOAL_NODE, LOCATION_NAME_TO_ID, PALACE_BOSS_NODES,
+from .Locations import (CRYSTAL_ITEM, FORMAT_VERSION, GOAL_EVENT, GOAL_NODE, LOCATION_NAME_TO_ID, PALACE_BOSS_NODES,
                         Z2RLocation)
 from .Options import Z2ROptions
 from .Client import Z2RClient  # required to register the client with the BizHawk client
@@ -14,7 +14,7 @@ from .Client import Z2RClient  # required to register the client with the BizHaw
 class Z2RWeb(WebWorld):
     tutorials = [Tutorial(
         "Multiworld Setup Guide",
-        "A guide to playing Zelda II: Z2R in an Archipelago multiworld.",
+        "A guide to playing Z2R in an Archipelago multiworld.",
         "English",
         "multiworld_en.md",
         "multiworld/en",
@@ -28,7 +28,7 @@ class Z2RWorld(World):
     that shuffles items, palaces, towns and the overworld. In this multiworld mode the Z2R app generates the seed
     logic and the ROM, and Archipelago decides what every major item location gives.
     """
-    game = "Zelda II: Z2R"
+    game = "Z2R"
     web = Z2RWeb()
     options_dataclass = Z2ROptions
     options: Z2ROptions
@@ -42,6 +42,10 @@ class Z2RWorld(World):
         for player in multiworld.get_game_players(cls.game):
             options = multiworld.worlds[player].options
             name = multiworld.get_player_name(player)
+            if options.format_version.value != FORMAT_VERSION:
+                raise Exception(f"Z2R YAML for {name} uses format version {options.format_version.value}, but this "
+                                f"version of the world reads version {FORMAT_VERSION}. Regenerate it with a matching "
+                                f"Z2R app.")
             if not options.locations.value or not options.rules.value:
                 raise Exception(f"Z2R settings submitted without locations or rules ({name}). "
                                 f"Generate the YAML with the Z2R app in Archipelago mode.")
@@ -95,9 +99,10 @@ class Z2RWorld(World):
         goal = Z2RLocation(self.player, GOAL_EVENT, None, menu)
         great_palace = self._rule_for(rules.get(GOAL_NODE, [[]]))
         player = self.player
+        crystals = self.options.crystals_required.value
         # Thunderbird, the Great Palace boss, can only be hurt with the Thunder spell. The Z2R app's routes
         # don't include it, so it is hardcoded here.
-        goal.access_rule = lambda state: (state.has(CRYSTAL_ITEM, player, CRYSTALS_REQUIRED)
+        goal.access_rule = lambda state: (state.has(CRYSTAL_ITEM, player, crystals)
                                           and state.has("Thunder Spell", player) and great_palace(state))
         goal.place_locked_item(Z2RItem(GOAL_EVENT, ItemClassification.progression, None, self.player))
         menu.locations.append(goal)
@@ -146,4 +151,6 @@ class Z2RWorld(World):
             "start_magic_containers": self.options.start_magic_containers.value,
             "start_heart_containers": self.options.start_heart_containers.value,
             "replace_fire_with_dash": bool(self.options.replace_fire_with_dash),
+            "rom_seed": self.options.rom_seed.value,
+            "rom_hash": self.options.hash.value,
         }

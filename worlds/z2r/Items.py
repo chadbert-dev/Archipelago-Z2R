@@ -6,7 +6,7 @@ BASE_ITEM_ID = 0x5A2000
 
 
 class Z2RItem(Item):
-    game = "Zelda II: Z2R"
+    game = "Z2R"
 
 
 class ItemData(NamedTuple):
