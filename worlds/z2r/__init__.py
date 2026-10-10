@@ -151,6 +151,7 @@ class Z2RWorld(World):
             "start_magic_containers": self.options.start_magic_containers.value,
             "start_heart_containers": self.options.start_heart_containers.value,
             "replace_fire_with_dash": bool(self.options.replace_fire_with_dash),
+            "new_kasuto_basement_requirement": self.options.new_kasuto_basement_requirement.value,
             "rom_seed": self.options.rom_seed.value,
             "rom_hash": self.options.hash.value,
         }

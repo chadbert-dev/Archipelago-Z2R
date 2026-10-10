@@ -11,6 +11,7 @@ Z2R:
   replace_fire_with_dash: false
   start_magic_containers: 4
   start_heart_containers: 4
+  new_kasuto_basement_requirement: 7
   crystals_required: 6
   starting_items: {Candle: 1, Life Spell: 1, Fairy Spell: 1, Downstab: 1}
   locations:

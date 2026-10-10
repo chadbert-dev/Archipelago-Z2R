@@ -63,6 +63,10 @@ XP_VALUES = [0, 2, 3, 5, 10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000]
 # 0xD0 + a 5 bit value, with 0xD0-0xD9 being digits and 0xDA onwards letters.
 HASH_ADDRESS = 0x17C1C  # in the "PRG ROM" domain
 HASH_LENGTH = 6
+# The basement under New Kasuto opens once the player has enough magic containers. The game sets this bit itself when
+# a container is picked up, which AP items don't do. HaveBasementAccess in ram.inc.
+BASEMENT_ACCESS_ADDRESS = 0x079D
+BASEMENT_ACCESS_MASK = 0x08
 # The game only counts as "in control of Link" when the game event is the main loop and the game mode has settled
 # (GameMode == GameModeCurrent) on the overworld or a side view. Item presence bits read as "collected" and the flag
 # area is meaningless on the title screen and file select, so nothing is read or written otherwise.
@@ -206,9 +210,8 @@ class Z2RClient(BizHawkClient):
         # Read what the game currently holds in every address we may write to
         addresses = sorted({data.address for name, data in ITEM_TABLE.items()
                             if name in received and data.address is not None}
-                           | {CONTAINER_ITEMS[name][0] for name in CONTAINER_ITEMS if name in received})
-        if not addresses:
-            return
+                           | {CONTAINER_ITEMS[name][0] for name in CONTAINER_ITEMS if name in received}
+                           | {BASEMENT_ACCESS_ADDRESS, CONTAINER_ITEMS["Magic Container"][0]})
         current = {address: value[0] for address, value in zip(addresses, await bizhawk.read(
             ctx.bizhawk_ctx, [(address, 1, RAM) for address in addresses]))}
         desired = dict(current)
@@ -227,6 +230,10 @@ class Z2RClient(BizHawkClient):
                 desired[data.address] = 1
             else:
                 desired[data.address] |= data.mask
+
+        # This also covers the containers the ROM starts with, which may already meet the requirement
+        if desired[CONTAINER_ITEMS["Magic Container"][0]] >= ctx.slot_data["new_kasuto_basement_requirement"]:
+            desired[BASEMENT_ACCESS_ADDRESS] |= BASEMENT_ACCESS_MASK
 
         writes = [(address, [value], RAM) for address, value in desired.items() if value != current[address]]
         if writes:
