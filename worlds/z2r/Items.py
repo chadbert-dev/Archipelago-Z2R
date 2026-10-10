@@ -110,3 +110,12 @@ CONTAINER_REQUIREMENTS: dict[str, int] = {
     "SEVEN_CONTAINERS": 7,
     "EIGHT_CONTAINERS": 8,
 }
+
+# The Z2R app names this item "Bagus Note"
+ITEM_ALIASES = {"Bagus Note": "Bagu's Note"}
+
+# Items the Z2R app leaves out of the pool when the matching include_*_in_shuffle option is off
+SPELL_ITEMS = ["Shield Spell", "Jump Spell", "Life Spell", "Fairy Spell", "Fire Spell", "Reflect Spell",
+               "Spell Spell", "Thunder Spell", "Dash Spell"]
+SWORD_TECH_ITEMS = ["Upstab", "Downstab"]
+QUEST_ITEMS = ["Water", "Bagu's Note", "Mirror"]

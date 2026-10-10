@@ -3,10 +3,10 @@ from typing import Any
 
 from BaseClasses import CollectionState, Item, ItemClassification, Region, Tutorial
 from worlds.AutoWorld import WebWorld, World
-from .Items import (CONTAINER_ITEMS, CONTAINER_REQUIREMENTS, FILLER_ITEMS, ITEM_NAME_TO_ID, ITEM_TABLE, POOL_PRIORITY,
-                    REQUIREMENT_ITEMS, Z2RItem)
+from .Items import (CONTAINER_ITEMS, CONTAINER_REQUIREMENTS, FILLER_ITEMS, ITEM_ALIASES, ITEM_NAME_TO_ID, ITEM_TABLE,
+                    POOL_PRIORITY, QUEST_ITEMS, REQUIREMENT_ITEMS, SPELL_ITEMS, SWORD_TECH_ITEMS, Z2RItem)
 from .Locations import (CRYSTAL_ITEM, FORMAT_VERSION, GOAL_EVENT, GOAL_NODE, LOCATION_NAME_TO_ID, PALACE_BOSS_NODES,
-                        Z2RLocation)
+                        Z2RLocation, normalize_nodes)
 from .Options import Z2ROptions
 from .Client import Z2RClient  # required to register the client with the BizHawk client
 
@@ -49,13 +49,23 @@ class Z2RWorld(World):
             if not options.locations.value or not options.rules.value:
                 raise Exception(f"Z2R settings submitted without locations or rules ({name}). "
                                 f"Generate the YAML with the Z2R app in Archipelago mode.")
-            unknown = [loc for loc in options.locations.value if loc not in LOCATION_NAME_TO_ID]
+            locations, rules = normalize_nodes(options.locations.value, options.rules.value, options.fixed_items.value)
+            unknown = [loc for loc in locations if loc not in LOCATION_NAME_TO_ID]
             if unknown:
                 raise Exception(f"Z2R locations unknown to this version of the world ({name}): {', '.join(unknown)}")
-            required = [*options.locations.value, GOAL_NODE, *PALACE_BOSS_NODES]
-            missing = [loc for loc in required if loc not in options.rules.value]
+            required = [*locations, *options.fixed_items.value, GOAL_NODE, *PALACE_BOSS_NODES]
+            missing = [loc for loc in required if loc not in rules]
             if missing:
                 raise Exception(f"Z2R rules for {name} have no entry for: {', '.join(missing)}")
+
+    def generate_early(self) -> None:
+        # The names of palace rooms depend on the seed, see normalize_nodes
+        self.z2r_locations, self.z2r_rules = normalize_nodes(
+            self.options.locations.value, self.options.rules.value, self.options.fixed_items.value)
+
+    @staticmethod
+    def _item_name(name: str) -> str:
+        return ITEM_ALIASES.get(name, name)
 
     def _rule_for(self, routes: list[list[str]]) -> Callable[[CollectionState], bool]:
         """Routes are alternatives (OR) of requirement lists (AND)."""
@@ -83,12 +93,22 @@ class Z2RWorld(World):
 
     def create_regions(self) -> None:
         menu = Region("Menu", self.player, self.multiworld)
-        rules = self.options.rules.value
-        for name in self.options.locations.value:
+        rules = self.z2r_rules
+        for name in self.z2r_locations:
             location = Z2RLocation(self.player, name, LOCATION_NAME_TO_ID[name], menu)
             # stage_assert_generate rejects real seeds with missing rules; defaults keep the generic tests working
             location.access_rule = self._rule_for(rules.get(name, [[]]))
             menu.locations.append(location)
+
+        # Town spots left out of the shuffle give a fixed item in game. Logic needs to know when it can be reached.
+        for node, item_name in self.options.fixed_items.value.items():
+            item_name = self._item_name(item_name)
+            if item_name not in ITEM_TABLE:
+                raise Exception(f"Unknown Z2R fixed item '{item_name}' at {node} for {self.player_name}")
+            fixed = Z2RLocation(self.player, node, None, menu)
+            fixed.access_rule = self._rule_for(rules.get(node, [[]]))
+            fixed.place_locked_item(Z2RItem(item_name, ITEM_TABLE[item_name].classification, None, self.player))
+            menu.locations.append(fixed)
 
         for i, node in enumerate(PALACE_BOSS_NODES):
             boss = Z2RLocation(self.player, f"Defeat Palace Boss {i + 1}", None, menu)
@@ -115,7 +135,7 @@ class Z2RWorld(World):
         return Z2RItem(name, ITEM_TABLE[name].classification, ITEM_NAME_TO_ID[name], self.player)
 
     def create_items(self) -> None:
-        starting = {name: int(count) for name, count in self.options.starting_items.value.items()}
+        starting = {self._item_name(name): int(count) for name, count in self.options.starting_items.value.items()}
         for name, count in starting.items():
             if name not in ITEM_TABLE or name in CONTAINER_ITEMS:
                 raise Exception(f"Unknown Z2R starting item '{name}' for {self.player_name}")
@@ -123,8 +143,17 @@ class Z2RWorld(World):
                 self.multiworld.push_precollected(self.create_item(name))
 
         uses_dash = bool(self.options.replace_fire_with_dash)
+        left_out: set[str] = set()  # given by the game itself, see fixed_items
+        if not self.options.include_spells_in_shuffle:
+            left_out.update(SPELL_ITEMS)
+        if not self.options.include_sword_techs_in_shuffle:
+            left_out.update(SWORD_TECH_ITEMS)
+        if not self.options.include_quest_items_in_shuffle:
+            left_out.update(QUEST_ITEMS)
         candidates: list[str] = []
         for name in POOL_PRIORITY:
+            if name in left_out:
+                continue
             if name in CONTAINER_ITEMS:
                 start = (self.options.start_magic_containers if name == "Magic Container"
                          else self.options.start_heart_containers).value
@@ -136,7 +165,7 @@ class Z2RWorld(World):
             elif name not in starting:
                 candidates.append(name)
 
-        slots = len(self.options.locations.value)
+        slots = len(self.z2r_locations)
         pool = candidates[:slots]
         filler_count = slots - len(pool)
         pool += [self.get_filler_item_name() for _ in range(filler_count)]
@@ -147,7 +176,7 @@ class Z2RWorld(World):
 
     def fill_slot_data(self) -> dict[str, Any]:
         return {
-            "locations": {name: dict(data) for name, data in self.options.locations.value.items()},
+            "locations": {name: dict(data) for name, data in self.z2r_locations.items()},
             "start_magic_containers": self.options.start_magic_containers.value,
             "start_heart_containers": self.options.start_heart_containers.value,
             "replace_fire_with_dash": bool(self.options.replace_fire_with_dash),
