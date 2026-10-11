@@ -67,6 +67,12 @@ HASH_LENGTH = 6
 # a container is picked up, which AP items don't do. HaveBasementAccess in ram.inc.
 BASEMENT_ACCESS_ADDRESS = 0x079D
 BASEMENT_ACCESS_MASK = 0x08
+# Raising a container count also refills the matching bar. The game does it by putting an amount in a buffer it pays
+# out over the following frames, with the normal animation and sound: $070C for magic (16 per magic container) and
+# $070D for life (0xF0, a full refill).
+MAGIC_REFILL_ADDRESS = 0x070C
+LIFE_REFILL_ADDRESS = 0x070D
+LIFE_REFILL_AMOUNT = 0xF0
 # The game only counts as "in control of Link" when the game event is the main loop and the game mode has settled
 # (GameMode == GameModeCurrent) on the overworld or a side view. Item presence bits read as "collected" and the flag
 # area is meaningless on the title screen and file select, so nothing is read or written otherwise.
@@ -236,6 +242,13 @@ class Z2RClient(BizHawkClient):
             desired[BASEMENT_ACCESS_ADDRESS] |= BASEMENT_ACCESS_MASK
 
         writes = [(address, [value], RAM) for address, value in desired.items() if value != current[address]]
+        # Mirror the game's own pickup: a container that was just added refills its bar
+        magic_address = CONTAINER_ITEMS["Magic Container"][0]
+        heart_address = CONTAINER_ITEMS["Heart Container"][0]
+        if heart_address in desired and desired[heart_address] > current[heart_address]:
+            writes.append((LIFE_REFILL_ADDRESS, [LIFE_REFILL_AMOUNT], RAM))
+        if desired[magic_address] > current[magic_address]:
+            writes.append((MAGIC_REFILL_ADDRESS, [(desired[magic_address] << 4) & 0xFF], RAM))
         if writes:
             await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
 
