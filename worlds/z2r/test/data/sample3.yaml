@@ -3,11 +3,11 @@ game: Z2R
 requires:
   version: 0.6.9
 Z2R:
-  rom_seed: "856261185"
+  rom_seed: '856261185'
   format_version: 1
-  randomizer_version: "5.2.4"
-  flags: "RAhBvv1hAjAKEFSEJmETriwDq++miVWCmFWcCB7AAThAih"
-  hash: "5584CD"
+  randomizer_version: 5.2.4
+  flags: RAhBvv1hAjAKEFSEJmETriwDq++miVWCmFWcCB7AAThAih
+  hash: 5584CD
   replace_fire_with_dash: false
   start_magic_containers: 4
   start_heart_containers: 4
@@ -16,84 +16,363 @@ Z2R:
   include_spells_in_shuffle: false
   include_sword_techs_in_shuffle: false
   include_quest_items_in_shuffle: false
-  starting_items: {Candle: 1, Shield Spell: 1, Downstab: 1}
+  starting_items:
+    Candle: 1
+    Shield Spell: 1
+    Downstab: 1
   locations:
-    DM_HAMMER_CAVE: {address: 1578, mask: 1, collected: 0}
-    DM_SPEC_ROCK: {address: 1581, mask: 64, collected: 0}
-    EAST_CAVE_PBAG1: {address: 1605, mask: 16, collected: 0}
-    EAST_CAVE_PBAG2: {address: 1606, mask: 16, collected: 0}
-    EAST_DESERT: {address: 1623, mask: 64, collected: 0}
-    EAST_PALACE5:room12: {address: 1677, mask: 16, collected: 0}
-    EAST_PALACE6:room13: {address: 1707, mask: 8, collected: 0}
-    EAST_TOWN_NEW_KASUTO:map46: {address: 1655, mask: 64, collected: 0}
-    EAST_TOWN_NEW_KASUTO:map47: {address: 1655, mask: 4, collected: 0}
-    EAST_WATER: {address: 1603, mask: 4, collected: 0}
-    MI_CHILD_DROP: {address: 1586, mask: 1, collected: 0}
-    MI_MAGIC_CONTAINER_DROP: {address: 1586, mask: 64, collected: 0}
-    MI_PALACE4:room9: {address: 1702, mask: 128, collected: 0}
-    WEST_CAVE_HEART_CONTAINER: {address: 1544, mask: 4, collected: 0}
-    WEST_CAVE_MAGIC_CONTAINER: {address: 1558, mask: 1, collected: 0}
-    WEST_CAVE_MEDICINE: {address: 1543, mask: 1, collected: 0}
-    WEST_CAVE_PBAG: {address: 1542, mask: 4, collected: 0}
-    WEST_CAVE_TROPHY: {address: 1552, mask: 8, collected: 0}
-    WEST_GRASS: {address: 1555, mask: 32, collected: 0}
-    WEST_PALACE1:room8: {address: 1665, mask: 64, collected: 0}
-    WEST_PALACE2:room12: {address: 1670, mask: 16, collected: 0}
-    WEST_PALACE3:room8: {address: 1697, mask: 128, collected: 0}
+    DM_HAMMER_CAVE:
+      address: 1578
+      mask: 1
+      collected: 0
+    DM_SPEC_ROCK:
+      address: 1581
+      mask: 64
+      collected: 0
+    EAST_CAVE_PBAG1:
+      address: 1605
+      mask: 16
+      collected: 0
+    EAST_CAVE_PBAG2:
+      address: 1606
+      mask: 16
+      collected: 0
+    EAST_DESERT:
+      address: 1623
+      mask: 64
+      collected: 0
+    EAST_PALACE5:item1:
+      address: 1677
+      mask: 16
+      collected: 0
+    EAST_PALACE6:item1:
+      address: 1707
+      mask: 8
+      collected: 0
+    EAST_TOWN_NEW_KASUTO:ganon_granny:
+      address: 1655
+      mask: 64
+      collected: 0
+    EAST_TOWN_NEW_KASUTO:spell_tower:
+      address: 1655
+      mask: 4
+      collected: 0
+    EAST_WATER:
+      address: 1603
+      mask: 4
+      collected: 0
+    MI_CHILD_DROP:
+      address: 1586
+      mask: 1
+      collected: 0
+    MI_MAGIC_CONTAINER_DROP:
+      address: 1586
+      mask: 64
+      collected: 0
+    MI_PALACE4:item1:
+      address: 1702
+      mask: 128
+      collected: 0
+    WEST_CAVE_HEART_CONTAINER:
+      address: 1544
+      mask: 4
+      collected: 0
+    WEST_CAVE_MAGIC_CONTAINER:
+      address: 1558
+      mask: 1
+      collected: 0
+    WEST_CAVE_MEDICINE:
+      address: 1543
+      mask: 1
+      collected: 0
+    WEST_CAVE_PBAG:
+      address: 1542
+      mask: 4
+      collected: 0
+    WEST_CAVE_TROPHY:
+      address: 1552
+      mask: 8
+      collected: 0
+    WEST_GRASS:
+      address: 1555
+      mask: 32
+      collected: 0
+    WEST_PALACE1:item1:
+      address: 1665
+      mask: 64
+      collected: 0
+    WEST_PALACE2:item1:
+      address: 1670
+      mask: 16
+      collected: 0
+    WEST_PALACE3:item1:
+      address: 1697
+      mask: 128
+      collected: 0
   fixed_items:
-    EAST_TOWN_DARUNIA:map41: Life Spell
-    EAST_TOWN_DARUNIA:map45: Upstab
-    EAST_TOWN_NABOORU:map13: Water
-    EAST_TOWN_NABOORU:map40: Fairy Spell
-    EAST_TOWN_NEW_KASUTO:map42: Shield Spell
-    EAST_TOWN_OLD_KASUTO:map43: Reflect Spell
-    WEST_BAGU_HOUSE:map31: Bagus Note
-    WEST_TOWN_MIDO:map39: Jump Spell
-    WEST_TOWN_MIDO:map44: Downstab
-    WEST_TOWN_RAURU:map36: Spell Spell
-    WEST_TOWN_RUTO:map37: Thunder Spell
-    WEST_TOWN_SARIA_NORTH:map30: Mirror
-    WEST_TOWN_SARIA_NORTH:map38: Fire Spell
+    EAST_TOWN_DARUNIA:wizard: Life Spell
+    EAST_TOWN_DARUNIA:upstab_man: Upstab
+    EAST_TOWN_NABOORU:fountain: Water
+    EAST_TOWN_NABOORU:wizard: Fairy Spell
+    EAST_TOWN_NEW_KASUTO:wizard: Shield Spell
+    EAST_TOWN_OLD_KASUTO:wizard: Reflect Spell
+    BAGU: Bagus Note
+    WEST_TOWN_MIDO:wizard: Jump Spell
+    WEST_TOWN_MIDO:downstab_man: Downstab
+    WEST_TOWN_RAURU:wizard: Spell Spell
+    WEST_TOWN_RUTO:wizard: Thunder Spell
+    WEST_TOWN_SARIA_NORTH:table: Mirror
+    WEST_TOWN_SARIA_NORTH:wizard: Fire Spell
   rules:
-    DM_HAMMER_CAVE: [[BOOTS]]
-    DM_SPEC_ROCK: [[BOOTS, HAMMER]]
-    EAST_CAVE_PBAG1: [[BOOTS, HAMMER]]
-    EAST_CAVE_PBAG2: [[BOOTS, HAMMER]]
-    EAST_DESERT: [[BOOTS, HAMMER]]
-    EAST_GREAT_PALACE:room33: [[BOOTS, GLOVE, HAMMER, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS, GLOVE, HAMMER]]
-    EAST_PALACE5:room12: [[BOOTS, FAIRY, FOUR_CONTAINERS, HAMMER], [BOOTS, GLOVE, HAMMER, KEY], [BOOTS, HAMMER, JUMP, KEY, TWO_CONTAINERS]]
-    EAST_PALACE5:room13: [[BOOTS, FAIRY, FOUR_CONTAINERS, HAMMER], [BOOTS, GLOVE, HAMMER, KEY], [BOOTS, HAMMER, JUMP, KEY, TWO_CONTAINERS]]
-    EAST_PALACE6:room13: [[BOOTS, GLOVE, HAMMER, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS, GLOVE, HAMMER]]
-    EAST_PALACE6:room14: [[BOOTS, GLOVE, HAMMER, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS, GLOVE, HAMMER]]
-    EAST_TOWN_DARUNIA:map41: [[BOOTS, CHILD, HAMMER]]
-    EAST_TOWN_DARUNIA:map45: [[BOOTS, FAIRY, FOUR_CONTAINERS, HAMMER], [BOOTS, HAMMER, JUMP, TWO_CONTAINERS]]
-    EAST_TOWN_NABOORU:map13: [[BOOTS, FLUTE, HAMMER]]
-    EAST_TOWN_NABOORU:map40: [[BOOTS, FLUTE, HAMMER, WATER]]
-    EAST_TOWN_NEW_KASUTO:map42: [[BOOTS, HAMMER]]
-    EAST_TOWN_NEW_KASUTO:map46: [[BOOTS, HAMMER, SEVEN_CONTAINERS]]
-    EAST_TOWN_NEW_KASUTO:map47: [[BOOTS, FOUR_CONTAINERS, HAMMER, SPELL]]
-    EAST_TOWN_OLD_KASUTO:map43: [[BOOTS, HAMMER]]
-    EAST_WATER: [[BOOTS, HAMMER]]
-    MI_CHILD_DROP: [[BOOTS, HAMMER, RAFT]]
-    MI_MAGIC_CONTAINER_DROP: [[BOOTS, HAMMER, RAFT]]
-    MI_PALACE4:room10: [[BOOTS, FAIRY, FOUR_CONTAINERS, HAMMER, RAFT, REFLECT], [BOOTS, FOUR_CONTAINERS, HAMMER, KEY, RAFT, REFLECT]]
-    MI_PALACE4:room9: [[BOOTS, HAMMER, KEY, RAFT], [BOOTS, FAIRY, FOUR_CONTAINERS, HAMMER, RAFT]]
-    WEST_BAGU_HOUSE:map31: [[BOOTS]]
-    WEST_CAVE_HEART_CONTAINER: [[BOOTS]]
-    WEST_CAVE_MAGIC_CONTAINER: [[BOOTS], [BAGU_LETTER], [FAIRY, FOUR_CONTAINERS], [DASH, JUMP, TWO_CONTAINERS]]
-    WEST_CAVE_MEDICINE: [[BOOTS]]
-    WEST_CAVE_PBAG: [[BOOTS], [BAGU_LETTER], [FAIRY, FOUR_CONTAINERS], [DASH, JUMP, TWO_CONTAINERS]]
-    WEST_CAVE_TROPHY: [[BOOTS]]
-    WEST_GRASS: [[]]
-    WEST_PALACE1:room8: [[BOOTS, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS]]
-    WEST_PALACE1:room9: [[BOOTS, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS]]
-    WEST_PALACE2:room12: [[BOOTS, GLOVE, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS, GLOVE]]
-    WEST_PALACE2:room13: [[BOOTS, GLOVE, KEY], [BOOTS, FAIRY, FOUR_CONTAINERS, GLOVE]]
-    WEST_PALACE3:room8: [[BOOTS, KEY], [BAGU_LETTER, KEY], [FAIRY, FOUR_CONTAINERS], [DASH, JUMP, KEY, TWO_CONTAINERS]]
-    WEST_PALACE3:room9: [[BOOTS, KEY], [BAGU_LETTER, KEY], [FAIRY, FOUR_CONTAINERS], [DASH, JUMP, KEY, TWO_CONTAINERS]]
-    WEST_TOWN_MIDO:map39: [[BOOTS, MEDICINE]]
-    WEST_TOWN_MIDO:map44: [[BOOTS, FAIRY, FOUR_CONTAINERS], [BOOTS, JUMP, TWO_CONTAINERS]]
-    WEST_TOWN_RAURU:map36: [[BOOTS]]
-    WEST_TOWN_RUTO:map37: [[BOOTS, TROPHY]]
-    WEST_TOWN_SARIA_NORTH:map30: [[BAGU_LETTER], [FAIRY, FOUR_CONTAINERS], [DASH, JUMP, TWO_CONTAINERS]]
-    WEST_TOWN_SARIA_NORTH:map38: [[BAGU_LETTER, MIRROR], [FAIRY, FOUR_CONTAINERS, MIRROR], [DASH, JUMP, MIRROR, TWO_CONTAINERS]]
+    DM_HAMMER_CAVE:
+    - - BOOTS
+    DM_SPEC_ROCK:
+    - - BOOTS
+      - HAMMER
+    EAST_CAVE_PBAG1:
+    - - BOOTS
+      - HAMMER
+    EAST_CAVE_PBAG2:
+    - - BOOTS
+      - HAMMER
+    EAST_DESERT:
+    - - BOOTS
+      - HAMMER
+    EAST_GREAT_PALACE:boss:
+    - - BOOTS
+      - GLOVE
+      - HAMMER
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - GLOVE
+      - HAMMER
+    EAST_PALACE5:item1:
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - HAMMER
+    - - BOOTS
+      - GLOVE
+      - HAMMER
+      - KEY
+    - - BOOTS
+      - HAMMER
+      - JUMP
+      - KEY
+      - TWO_CONTAINERS
+    EAST_PALACE5:boss:
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - HAMMER
+    - - BOOTS
+      - GLOVE
+      - HAMMER
+      - KEY
+    - - BOOTS
+      - HAMMER
+      - JUMP
+      - KEY
+      - TWO_CONTAINERS
+    EAST_PALACE6:item1:
+    - - BOOTS
+      - GLOVE
+      - HAMMER
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - GLOVE
+      - HAMMER
+    EAST_PALACE6:boss:
+    - - BOOTS
+      - GLOVE
+      - HAMMER
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - GLOVE
+      - HAMMER
+    EAST_TOWN_DARUNIA:wizard:
+    - - BOOTS
+      - CHILD
+      - HAMMER
+    EAST_TOWN_DARUNIA:upstab_man:
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - HAMMER
+    - - BOOTS
+      - HAMMER
+      - JUMP
+      - TWO_CONTAINERS
+    EAST_TOWN_NABOORU:fountain:
+    - - BOOTS
+      - FLUTE
+      - HAMMER
+    EAST_TOWN_NABOORU:wizard:
+    - - BOOTS
+      - FLUTE
+      - HAMMER
+      - WATER
+    EAST_TOWN_NEW_KASUTO:wizard:
+    - - BOOTS
+      - HAMMER
+    EAST_TOWN_NEW_KASUTO:ganon_granny:
+    - - BOOTS
+      - HAMMER
+      - SEVEN_CONTAINERS
+    EAST_TOWN_NEW_KASUTO:spell_tower:
+    - - BOOTS
+      - FOUR_CONTAINERS
+      - HAMMER
+      - SPELL
+    EAST_TOWN_OLD_KASUTO:wizard:
+    - - BOOTS
+      - HAMMER
+    EAST_WATER:
+    - - BOOTS
+      - HAMMER
+    MI_CHILD_DROP:
+    - - BOOTS
+      - HAMMER
+      - RAFT
+    MI_MAGIC_CONTAINER_DROP:
+    - - BOOTS
+      - HAMMER
+      - RAFT
+    MI_PALACE4:boss:
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - HAMMER
+      - RAFT
+      - REFLECT
+    - - BOOTS
+      - FOUR_CONTAINERS
+      - HAMMER
+      - KEY
+      - RAFT
+      - REFLECT
+    MI_PALACE4:item1:
+    - - BOOTS
+      - HAMMER
+      - KEY
+      - RAFT
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - HAMMER
+      - RAFT
+    BAGU:
+    - - BOOTS
+    WEST_CAVE_HEART_CONTAINER:
+    - - BOOTS
+    WEST_CAVE_MAGIC_CONTAINER:
+    - - BOOTS
+    - - BAGU_LETTER
+    - - FAIRY
+      - FOUR_CONTAINERS
+    - - DASH
+      - JUMP
+      - TWO_CONTAINERS
+    WEST_CAVE_MEDICINE:
+    - - BOOTS
+    WEST_CAVE_PBAG:
+    - - BOOTS
+    - - BAGU_LETTER
+    - - FAIRY
+      - FOUR_CONTAINERS
+    - - DASH
+      - JUMP
+      - TWO_CONTAINERS
+    WEST_CAVE_TROPHY:
+    - - BOOTS
+    WEST_GRASS:
+    - []
+    WEST_PALACE1:item1:
+    - - BOOTS
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+    WEST_PALACE1:boss:
+    - - BOOTS
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+    WEST_PALACE2:item1:
+    - - BOOTS
+      - GLOVE
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - GLOVE
+    WEST_PALACE2:boss:
+    - - BOOTS
+      - GLOVE
+      - KEY
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - GLOVE
+    WEST_PALACE3:item1:
+    - - BOOTS
+      - KEY
+    - - BAGU_LETTER
+      - KEY
+    - - FAIRY
+      - FOUR_CONTAINERS
+    - - DASH
+      - JUMP
+      - KEY
+      - TWO_CONTAINERS
+    WEST_PALACE3:boss:
+    - - BOOTS
+      - KEY
+    - - BAGU_LETTER
+      - KEY
+    - - FAIRY
+      - FOUR_CONTAINERS
+    - - DASH
+      - JUMP
+      - KEY
+      - TWO_CONTAINERS
+    WEST_TOWN_MIDO:wizard:
+    - - BOOTS
+      - MEDICINE
+    WEST_TOWN_MIDO:downstab_man:
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+    - - BOOTS
+      - JUMP
+      - TWO_CONTAINERS
+    WEST_TOWN_RAURU:wizard:
+    - - BOOTS
+    WEST_TOWN_RUTO:wizard:
+    - - BOOTS
+      - TROPHY
+    WEST_TOWN_SARIA_NORTH:table:
+    - - BAGU_LETTER
+    - - FAIRY
+      - FOUR_CONTAINERS
+    - - DASH
+      - JUMP
+      - TWO_CONTAINERS
+    WEST_TOWN_SARIA_NORTH:wizard:
+    - - BAGU_LETTER
+      - MIRROR
+    - - FAIRY
+      - FOUR_CONTAINERS
+      - MIRROR
+    - - DASH
+      - JUMP
+      - MIRROR
+      - TWO_CONTAINERS
+  great_palace: EAST_GREAT_PALACE:boss

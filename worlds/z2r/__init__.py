@@ -5,8 +5,8 @@ from BaseClasses import CollectionState, Item, ItemClassification, Region, Tutor
 from worlds.AutoWorld import WebWorld, World
 from .Items import (CONTAINER_ITEMS, CONTAINER_REQUIREMENTS, FILLER_ITEMS, ITEM_ALIASES, ITEM_NAME_TO_ID, ITEM_TABLE,
                     POOL_PRIORITY, QUEST_ITEMS, REQUIREMENT_ITEMS, SPELL_ITEMS, SWORD_TECH_ITEMS, Z2RItem)
-from .Locations import (CRYSTAL_ITEM, FORMAT_VERSION, GOAL_EVENT, GOAL_NODE, LOCATION_NAME_TO_ID, PALACE_BOSS_NODES,
-                        Z2RLocation, normalize_nodes)
+from .Locations import (CRYSTAL_ITEM, FORMAT_VERSION, GOAL_EVENT, LOCATION_NAME_TO_ID, PALACE_BOSS_NODES,
+                        Z2RLocation)
 from .Options import Z2ROptions
 from .Client import Z2RClient  # required to register the client with the BizHawk client
 
@@ -49,19 +49,16 @@ class Z2RWorld(World):
             if not options.locations.value or not options.rules.value:
                 raise Exception(f"Z2R settings submitted without locations or rules ({name}). "
                                 f"Generate the YAML with the Z2R app in Archipelago mode.")
-            locations, rules = normalize_nodes(options.locations.value, options.rules.value, options.fixed_items.value)
+            locations, rules = options.locations.value, options.rules.value
             unknown = [loc for loc in locations if loc not in LOCATION_NAME_TO_ID]
             if unknown:
                 raise Exception(f"Z2R locations unknown to this version of the world ({name}): {', '.join(unknown)}")
-            required = [*locations, *options.fixed_items.value, GOAL_NODE, *PALACE_BOSS_NODES]
+            if options.great_palace.value not in PALACE_BOSS_NODES:
+                raise Exception(f"Z2R great_palace '{options.great_palace.value}' for {name} is not a palace boss.")
+            required = [*locations, *options.fixed_items.value, *PALACE_BOSS_NODES]
             missing = [loc for loc in required if loc not in rules]
             if missing:
                 raise Exception(f"Z2R rules for {name} have no entry for: {', '.join(missing)}")
-
-    def generate_early(self) -> None:
-        # The names of palace rooms depend on the seed, see normalize_nodes
-        self.z2r_locations, self.z2r_rules = normalize_nodes(
-            self.options.locations.value, self.options.rules.value, self.options.fixed_items.value)
 
     @staticmethod
     def _item_name(name: str) -> str:
@@ -93,8 +90,8 @@ class Z2RWorld(World):
 
     def create_regions(self) -> None:
         menu = Region("Menu", self.player, self.multiworld)
-        rules = self.z2r_rules
-        for name in self.z2r_locations:
+        rules = self.options.rules.value
+        for name in self.options.locations.value:
             location = Z2RLocation(self.player, name, LOCATION_NAME_TO_ID[name], menu)
             # stage_assert_generate rejects real seeds with missing rules; defaults keep the generic tests working
             location.access_rule = self._rule_for(rules.get(name, [[]]))
@@ -110,14 +107,17 @@ class Z2RWorld(World):
             fixed.place_locked_item(Z2RItem(item_name, ITEM_TABLE[item_name].classification, None, self.player))
             menu.locations.append(fixed)
 
-        for i, node in enumerate(PALACE_BOSS_NODES):
-            boss = Z2RLocation(self.player, f"Defeat Palace Boss {i + 1}", None, menu)
+        great_palace_node = self.options.great_palace.value
+        for node in PALACE_BOSS_NODES:
+            if node == great_palace_node:
+                continue
+            boss = Z2RLocation(self.player, f"Defeat {node}", None, menu)
             boss.access_rule = self._rule_for(rules.get(node, [[]]))
             boss.place_locked_item(Z2RItem(CRYSTAL_ITEM, ItemClassification.progression, None, self.player))
             menu.locations.append(boss)
 
         goal = Z2RLocation(self.player, GOAL_EVENT, None, menu)
-        great_palace = self._rule_for(rules.get(GOAL_NODE, [[]]))
+        great_palace = self._rule_for(rules.get(great_palace_node, [[]]))
         player = self.player
         crystals = self.options.crystals_required.value
         # Thunderbird, the Great Palace boss, can only be hurt with the Thunder spell. The Z2R app's routes
@@ -165,7 +165,7 @@ class Z2RWorld(World):
             elif name not in starting:
                 candidates.append(name)
 
-        slots = len(self.z2r_locations)
+        slots = len(self.options.locations.value)
         pool = candidates[:slots]
         filler_count = slots - len(pool)
         pool += [self.get_filler_item_name() for _ in range(filler_count)]
@@ -176,7 +176,7 @@ class Z2RWorld(World):
 
     def fill_slot_data(self) -> dict[str, Any]:
         return {
-            "locations": {name: dict(data) for name, data in self.z2r_locations.items()},
+            "locations": {name: dict(data) for name, data in self.options.locations.value.items()},
             "start_magic_containers": self.options.start_magic_containers.value,
             "start_heart_containers": self.options.start_heart_containers.value,
             "replace_fire_with_dash": bool(self.options.replace_fire_with_dash),

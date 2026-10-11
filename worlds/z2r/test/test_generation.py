@@ -1,20 +1,18 @@
-from ..Locations import GOAL_EVENT, LOCATION_NAME_TO_ID
+from ..Locations import GOAL_EVENT, LOCATION_NAME_TO_ID, PALACE_BOSS_NODES
 from .bases import Z2RTestBase
 
 
 class TestGeneration(Z2RTestBase):
     def test_all_locations_created(self) -> None:
         names = {location.name for location in self.multiworld.get_locations(self.player)}
-        locations = set(self.world.z2r_locations)
-        events = {GOAL_EVENT, *self.options.get("fixed_items", {}), *(f"Defeat Palace Boss {i}" for i in range(1, 7))}
-        self.assertEqual(names, locations | events)
+        locations = set(self.options["locations"])
+        bosses = {f"Defeat {node}" for node in PALACE_BOSS_NODES if node != self.options["great_palace"]}
+        self.assertEqual(names, locations | {GOAL_EVENT, *self.options["fixed_items"], *bosses})
         self.assertTrue(locations <= set(LOCATION_NAME_TO_ID))
 
     def test_pool_fills_locations(self) -> None:
         self.assertEqual(len(self.multiworld.itempool), len(self.options["locations"]))
 
-    def test_palace_rooms_are_renamed(self) -> None:
-        self.assertFalse([name for name in self.world.z2r_locations if ":room" in name])
 
     def test_dash_replaced_by_fairy(self) -> None:
         names = {item.name for item in self.multiworld.itempool}
@@ -42,3 +40,12 @@ class TestNothingShuffled(TestGeneration):
 
     def test_dash_replaced_by_fairy(self) -> None:
         self.assertNotIn("Dash Spell", {item.name for item in self.multiworld.itempool})
+
+
+class TestSwappedGreatPalace(TestGeneration):
+    """A seed where the Great Palace is not at its usual location."""
+    sample = "sample4.yaml"
+
+    def test_great_palace_is_the_goal(self) -> None:
+        self.assertEqual(self.options["great_palace"], "MI_PALACE4:boss")
+        self.assertIn("Defeat EAST_GREAT_PALACE:boss", {location.name for location in self.multiworld.get_locations(self.player)})

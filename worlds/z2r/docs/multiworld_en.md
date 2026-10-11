@@ -24,7 +24,8 @@
 
 ## Notes
 
-- The Great Palace, Thunderbird and Dark Link need `crystals_required` crystals (one per palace boss, up to 6).
+- The Great Palace, Thunderbird and Dark Link need `crystals_required` crystals (one per other palace boss, up to 6).
+  The Great Palace is the palace named by `great_palace`, because palaces can swap places.
 - Set `replace_fire_with_dash: true` only if the seed was generated with Dash replacing Fire. Otherwise logic that
   needs Dash uses the Fairy spell.
 - Defeating Thunderbird requires the Thunder spell, which is hardcoded because the Z2R app's requirements output
