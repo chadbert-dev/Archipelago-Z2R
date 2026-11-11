@@ -93,6 +93,7 @@ class Z2RClient(BizHawkClient):
     seed_mismatch_logged: bool
     guards: list[tuple[int, list[int], str]]
     last_state: tuple[int, int, int] | None
+    sent_events: set[str]
 
     def __init__(self) -> None:
         self.slot_name = ""
@@ -101,6 +102,7 @@ class Z2RClient(BizHawkClient):
         self.seed_mismatch_logged = False
         self.guards = []
         self.last_state = None
+        self.sent_events = set()
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
@@ -118,6 +120,7 @@ class Z2RClient(BizHawkClient):
         self.rom_seed = block[0x18:0x38].split(b"\x00")[0].decode("ascii", errors="replace")
         self.rom_hash = "".join(self.decode_hash_tile(hash_tiles[i * 2]) for i in range(HASH_LENGTH))
         self.seed_mismatch_logged = False
+        self.sent_events = set()
         ctx.game = self.game
         ctx.items_handling = 0b111
         ctx.want_slot_data = True
@@ -177,6 +180,7 @@ class Z2RClient(BizHawkClient):
             flags, game_complete = state[0], state[1][0]
 
             await self.location_check(ctx, flags)
+            await self.event_check(ctx, flags)
             if game_complete & GAME_COMPLETE_MASK and not ctx.finished_game:
                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                 ctx.finished_game = True
@@ -204,6 +208,26 @@ class Z2RClient(BizHawkClient):
             ctx.locations_checked.add(location_id)
             logger.info(f"New Check: {ctx.location_names.lookup_in_game(location_id)} "
                         f"({len(ctx.locations_checked)}/{len(ctx.missing_locations) + len(ctx.checked_locations)})")
+
+    async def event_check(self, ctx: "BizHawkClientContext", flags: bytes) -> None:
+        """Publish the game events that have happened (such as PALACE1:crystal) to the server's data storage, under
+        z2r_events_<team>_<slot>, for trackers. Events use the same flag format as locations."""
+        reached: dict[str, bool] = {}
+        for name, data in ctx.slot_data.get("events", {}).items():
+            if name in self.sent_events:
+                continue
+            offset = data["address"] - FLAGS_START
+            if not 0 <= offset < FLAGS_SIZE:
+                continue
+            if bool(flags[offset] & data["mask"]) == bool(data["collected"]):
+                reached[name] = True
+        if not reached:
+            return
+
+        await ctx.send_msgs([{"cmd": "Set", "key": f"z2r_events_{ctx.team}_{ctx.slot}", "default": {},
+                              "want_reply": False, "operations": [{"operation": "update", "value": reached}]}])
+        self.sent_events.update(reached)
+        logger.info(f"Events reached: {', '.join(reached)}")
 
     async def received_items_check(self, ctx: "BizHawkClientContext", flags: bytes) -> None:
         """Make the game's inventory match everything received. Every write is absolute, so it is safe to repeat
