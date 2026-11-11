@@ -22,11 +22,11 @@ LOCATION_NAME_TO_ID: dict[str, int] = {name: BASE_LOCATION_ID + i for i, name in
 FORMAT_VERSION = 1
 CRYSTAL_ITEM = "Crystal"
 PALACE_BOSS_NODES = [
-    "WEST_PALACE1:boss",
-    "WEST_PALACE2:boss",
-    "WEST_PALACE3:boss",
-    "MI_PALACE4:boss",
-    "EAST_PALACE5:boss",
-    "EAST_PALACE6:boss",
-    "EAST_GREAT_PALACE:boss",
+    "PALACE1:boss",
+    "PALACE2:boss",
+    "PALACE3:boss",
+    "PALACE4:boss",
+    "PALACE5:boss",
+    "PALACE6:boss",
+    "GREAT_PALACE:boss",
 ]

@@ -47,5 +47,17 @@ class TestSwappedGreatPalace(TestGeneration):
     sample = "sample4.yaml"
 
     def test_great_palace_is_the_goal(self) -> None:
-        self.assertEqual(self.options["great_palace"], "MI_PALACE4:boss")
-        self.assertIn("Defeat EAST_GREAT_PALACE:boss", {location.name for location in self.multiworld.get_locations(self.player)})
+        self.assertEqual(self.options["great_palace"], "PALACE4:boss")
+        self.assertIn("Defeat GREAT_PALACE:boss", {location.name for location in self.multiworld.get_locations(self.player)})
+
+
+class TestEventsAndPriorityLocations(TestGeneration):
+    """A seed with palace crystal events and the app's priority_locations."""
+    sample = "sample5.yaml"
+
+    def test_events_are_in_slot_data(self) -> None:
+        events = self.world.fill_slot_data()["events"]
+        self.assertEqual(set(events), {f"PALACE{i}:crystal" for i in (1, 3, 4, 5, 6)} | {"GREAT_PALACE:crystal"})
+
+    def test_priority_locations(self) -> None:
+        self.assertTrue(self.world.options.priority_locations.value <= set(self.options["locations"]))

@@ -41,11 +41,11 @@ Z2R:
       address: 1623
       mask: 64
       collected: 0
-    EAST_PALACE5:item1:
+    PALACE5:item1:
       address: 1677
       mask: 16
       collected: 0
-    EAST_PALACE6:item1:
+    PALACE6:item1:
       address: 1707
       mask: 8
       collected: 0
@@ -69,7 +69,7 @@ Z2R:
       address: 1586
       mask: 64
       collected: 0
-    MI_PALACE4:item1:
+    PALACE4:item1:
       address: 1702
       mask: 128
       collected: 0
@@ -97,15 +97,15 @@ Z2R:
       address: 1555
       mask: 32
       collected: 0
-    WEST_PALACE1:item1:
+    PALACE1:item1:
       address: 1665
       mask: 64
       collected: 0
-    WEST_PALACE2:item1:
+    PALACE2:item1:
       address: 1670
       mask: 16
       collected: 0
-    WEST_PALACE3:item1:
+    PALACE3:item1:
       address: 1697
       mask: 128
       collected: 0
@@ -138,7 +138,7 @@ Z2R:
     EAST_DESERT:
     - - BOOTS
       - HAMMER
-    EAST_GREAT_PALACE:boss:
+    GREAT_PALACE:boss:
     - - BOOTS
       - GLOVE
       - HAMMER
@@ -148,21 +148,7 @@ Z2R:
       - FOUR_CONTAINERS
       - GLOVE
       - HAMMER
-    EAST_PALACE5:item1:
-    - - BOOTS
-      - FAIRY
-      - FOUR_CONTAINERS
-      - HAMMER
-    - - BOOTS
-      - GLOVE
-      - HAMMER
-      - KEY
-    - - BOOTS
-      - HAMMER
-      - JUMP
-      - KEY
-      - TWO_CONTAINERS
-    EAST_PALACE5:boss:
+    PALACE5:item1:
     - - BOOTS
       - FAIRY
       - FOUR_CONTAINERS
@@ -176,7 +162,21 @@ Z2R:
       - JUMP
       - KEY
       - TWO_CONTAINERS
-    EAST_PALACE6:item1:
+    PALACE5:boss:
+    - - BOOTS
+      - FAIRY
+      - FOUR_CONTAINERS
+      - HAMMER
+    - - BOOTS
+      - GLOVE
+      - HAMMER
+      - KEY
+    - - BOOTS
+      - HAMMER
+      - JUMP
+      - KEY
+      - TWO_CONTAINERS
+    PALACE6:item1:
     - - BOOTS
       - GLOVE
       - HAMMER
@@ -186,7 +186,7 @@ Z2R:
       - FOUR_CONTAINERS
       - GLOVE
       - HAMMER
-    EAST_PALACE6:boss:
+    PALACE6:boss:
     - - BOOTS
       - GLOVE
       - HAMMER
@@ -244,7 +244,7 @@ Z2R:
     - - BOOTS
       - HAMMER
       - RAFT
-    MI_PALACE4:boss:
+    PALACE4:boss:
     - - BOOTS
       - FAIRY
       - FOUR_CONTAINERS
@@ -257,7 +257,7 @@ Z2R:
       - KEY
       - RAFT
       - REFLECT
-    MI_PALACE4:item1:
+    PALACE4:item1:
     - - BOOTS
       - HAMMER
       - KEY
@@ -293,19 +293,19 @@ Z2R:
     - - BOOTS
     WEST_GRASS:
     - []
-    WEST_PALACE1:item1:
+    PALACE1:item1:
     - - BOOTS
       - KEY
     - - BOOTS
       - FAIRY
       - FOUR_CONTAINERS
-    WEST_PALACE1:boss:
+    PALACE1:boss:
     - - BOOTS
       - KEY
     - - BOOTS
       - FAIRY
       - FOUR_CONTAINERS
-    WEST_PALACE2:item1:
+    PALACE2:item1:
     - - BOOTS
       - GLOVE
       - KEY
@@ -313,7 +313,7 @@ Z2R:
       - FAIRY
       - FOUR_CONTAINERS
       - GLOVE
-    WEST_PALACE2:boss:
+    PALACE2:boss:
     - - BOOTS
       - GLOVE
       - KEY
@@ -321,7 +321,7 @@ Z2R:
       - FAIRY
       - FOUR_CONTAINERS
       - GLOVE
-    WEST_PALACE3:item1:
+    PALACE3:item1:
     - - BOOTS
       - KEY
     - - BAGU_LETTER
@@ -332,7 +332,7 @@ Z2R:
       - JUMP
       - KEY
       - TWO_CONTAINERS
-    WEST_PALACE3:boss:
+    PALACE3:boss:
     - - BOOTS
       - KEY
     - - BAGU_LETTER
@@ -375,4 +375,4 @@ Z2R:
       - JUMP
       - MIRROR
       - TWO_CONTAINERS
-  great_palace: EAST_GREAT_PALACE:boss
+  great_palace: GREAT_PALACE:boss

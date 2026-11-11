@@ -1,0 +1,108 @@
+name: ChadbertZ2R
+game: Z2R
+requires:
+  version: 0.6.7
+Z2R:
+  rom_seed: "949444171"
+  format_version: 1
+  randomizer_version: "5.2.4"
+  flags: "RAABvvyhAsnA3hTamjSnFbDdHW+#5yqsvMVs1FHyAAnADtA"
+  hash: "1RVT74"
+  replace_fire_with_dash: false
+  start_magic_containers: 4
+  start_heart_containers: 4
+  crystals_required: 6
+  great_palace: PALACE2:boss
+  new_kasuto_basement_requirement: 6
+  include_spells_in_shuffle: true
+  include_sword_techs_in_shuffle: false
+  include_quest_items_in_shuffle: true
+  starting_items: {Candle: 1}
+  priority_locations: [GREAT_PALACE:item1, PALACE1:item1, PALACE3:item1, PALACE4:item1, PALACE5:item1, PALACE6:item1]
+  locations:
+    BAGU: {address: 1941, mask: 1, collected: 1}
+    DM_HAMMER_CAVE: {address: 1578, mask: 1, collected: 0}
+    DM_SPEC_ROCK: {address: 1581, mask: 64, collected: 0}
+    EAST_CAVE_PBAG1: {address: 1605, mask: 16, collected: 0}
+    EAST_CAVE_PBAG2: {address: 1606, mask: 16, collected: 0}
+    EAST_DESERT: {address: 1623, mask: 64, collected: 0}
+    EAST_TOWN_DARUNIA:wizard: {address: 1914, mask: 64, collected: 1}
+    EAST_TOWN_NABOORU:fountain: {address: 1941, mask: 128, collected: 1}
+    EAST_TOWN_NABOORU:wizard: {address: 1914, mask: 128, collected: 1}
+    EAST_TOWN_NEW_KASUTO:ganon_granny: {address: 1655, mask: 64, collected: 0}
+    EAST_TOWN_NEW_KASUTO:spell_tower: {address: 1655, mask: 4, collected: 0}
+    EAST_TOWN_NEW_KASUTO:wizard: {address: 1914, mask: 32, collected: 1}
+    EAST_TOWN_OLD_KASUTO:wizard: {address: 1914, mask: 16, collected: 1}
+    EAST_WATER: {address: 1603, mask: 4, collected: 0}
+    GREAT_PALACE:item1: {address: 1679, mask: 4, collected: 0}
+    MI_CHILD_DROP: {address: 1586, mask: 1, collected: 0}
+    MI_MAGIC_CONTAINER_DROP: {address: 1586, mask: 64, collected: 0}
+    PALACE1:item1: {address: 1665, mask: 16, collected: 0}
+    PALACE3:item1: {address: 1703, mask: 128, collected: 0}
+    PALACE4:item1: {address: 1709, mask: 8, collected: 0}
+    PALACE5:item1: {address: 1671, mask: 128, collected: 0}
+    PALACE6:item1: {address: 1697, mask: 128, collected: 0}
+    WEST_CAVE_HEART_CONTAINER: {address: 1544, mask: 4, collected: 0}
+    WEST_CAVE_MAGIC_CONTAINER: {address: 1558, mask: 1, collected: 0}
+    WEST_CAVE_MEDICINE: {address: 1543, mask: 1, collected: 0}
+    WEST_CAVE_PBAG: {address: 1542, mask: 4, collected: 0}
+    WEST_CAVE_TROPHY: {address: 1552, mask: 8, collected: 0}
+    WEST_GRASS: {address: 1555, mask: 32, collected: 0}
+    WEST_TOWN_MIDO:wizard: {address: 1914, mask: 1, collected: 1}
+    WEST_TOWN_RAURU:wizard: {address: 1914, mask: 8, collected: 1}
+    WEST_TOWN_RUTO:wizard: {address: 1914, mask: 4, collected: 1}
+    WEST_TOWN_SARIA_NORTH:table: {address: 1941, mask: 2, collected: 1}
+    WEST_TOWN_SARIA_NORTH:wizard: {address: 1914, mask: 2, collected: 1}
+  events:
+    GREAT_PALACE:crystal: {address: 1937, mask: 255, collected: 1}
+    PALACE1:crystal: {address: 1933, mask: 255, collected: 1}
+    PALACE3:crystal: {address: 1936, mask: 255, collected: 1}
+    PALACE4:crystal: {address: 1938, mask: 255, collected: 1}
+    PALACE5:crystal: {address: 1934, mask: 255, collected: 1}
+    PALACE6:crystal: {address: 1935, mask: 255, collected: 1}
+  fixed_items:
+    EAST_TOWN_DARUNIA:upstab_man: Upstab
+    WEST_TOWN_MIDO:downstab_man: Downstab
+  rules:
+    BAGU: [[]]
+    DM_HAMMER_CAVE: [[]]
+    DM_SPEC_ROCK: [[HAMMER]]
+    EAST_CAVE_PBAG1: [[HAMMER, RAFT]]
+    EAST_CAVE_PBAG2: [[RAFT]]
+    EAST_DESERT: [[BOOTS, RAFT]]
+    EAST_TOWN_DARUNIA:upstab_man: [[FAIRY, FOUR_CONTAINERS, RAFT], [JUMP, RAFT, TWO_CONTAINERS]]
+    EAST_TOWN_DARUNIA:wizard: [[CHILD, RAFT]]
+    EAST_TOWN_NABOORU:fountain: [[FLUTE, RAFT]]
+    EAST_TOWN_NABOORU:wizard: [[FLUTE, RAFT, WATER]]
+    EAST_TOWN_NEW_KASUTO:ganon_granny: [[HAMMER, RAFT, SIX_CONTAINERS]]
+    EAST_TOWN_NEW_KASUTO:spell_tower: [[FOUR_CONTAINERS, HAMMER, RAFT, SPELL]]
+    EAST_TOWN_NEW_KASUTO:wizard: [[HAMMER, RAFT]]
+    EAST_TOWN_OLD_KASUTO:wizard: [[RAFT]]
+    EAST_WATER: [[BOOTS, RAFT]]
+    GREAT_PALACE:boss: [[GLOVE, KEY, RAFT], [FAIRY, FOUR_CONTAINERS, GLOVE, RAFT]]
+    GREAT_PALACE:item1: [[KEY, RAFT], [FAIRY, FOUR_CONTAINERS, RAFT]]
+    MI_CHILD_DROP: [[]]
+    MI_MAGIC_CONTAINER_DROP: [[]]
+    PALACE1:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
+    PALACE1:item1: [[KEY], [FAIRY, FOUR_CONTAINERS]]
+    PALACE2:boss: [[DOWNSTAB, GLOVE, KEY, UPSTAB], [DOWNSTAB, FAIRY, FOUR_CONTAINERS, GLOVE, UPSTAB]]
+    PALACE3:boss: [[FAIRY, FOUR_CONTAINERS, GLOVE, REFLECT], [FOUR_CONTAINERS, GLOVE, KEY, REFLECT]]
+    PALACE3:item1: [[GLOVE, KEY], [FAIRY, FOUR_CONTAINERS, GLOVE]]
+    PALACE4:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
+    PALACE4:item1: [[FAIRY, FOUR_CONTAINERS], [GLOVE, KEY], [JUMP, KEY, TWO_CONTAINERS]]
+    PALACE5:boss: [[KEY, RAFT], [FAIRY, FOUR_CONTAINERS, RAFT]]
+    PALACE5:item1: [[FAIRY, FOUR_CONTAINERS, RAFT]]
+    PALACE6:boss: [[FLUTE, KEY, RAFT], [FAIRY, FLUTE, FOUR_CONTAINERS, RAFT]]
+    PALACE6:item1: [[FLUTE, GLOVE, KEY, RAFT], [FAIRY, FLUTE, FOUR_CONTAINERS, GLOVE, RAFT]]
+    WEST_CAVE_HEART_CONTAINER: [[]]
+    WEST_CAVE_MAGIC_CONTAINER: [[]]
+    WEST_CAVE_MEDICINE: [[]]
+    WEST_CAVE_PBAG: [[]]
+    WEST_CAVE_TROPHY: [[]]
+    WEST_GRASS: [[]]
+    WEST_TOWN_MIDO:downstab_man: [[FAIRY, FOUR_CONTAINERS], [JUMP, TWO_CONTAINERS]]
+    WEST_TOWN_MIDO:wizard: [[MEDICINE]]
+    WEST_TOWN_RAURU:wizard: [[]]
+    WEST_TOWN_RUTO:wizard: [[TROPHY]]
+    WEST_TOWN_SARIA_NORTH:table: [[BAGU_LETTER], [FAIRY, FOUR_CONTAINERS], [DASH, JUMP, TWO_CONTAINERS]]
+    WEST_TOWN_SARIA_NORTH:wizard: [[BAGU_LETTER, MIRROR], [FAIRY, FOUR_CONTAINERS, MIRROR], [DASH, JUMP, MIRROR, TWO_CONTAINERS]]

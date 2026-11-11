@@ -12,7 +12,7 @@ Z2R:
   start_magic_containers: 4
   start_heart_containers: 4
   crystals_required: 6
-  great_palace: MI_PALACE4:boss
+  great_palace: PALACE4:boss
   new_kasuto_basement_requirement: 5
   include_spells_in_shuffle: true
   include_sword_techs_in_shuffle: true
@@ -25,7 +25,7 @@ Z2R:
     EAST_CAVE_PBAG1: {address: 1605, mask: 16, collected: 0}
     EAST_CAVE_PBAG2: {address: 1606, mask: 16, collected: 0}
     EAST_DESERT: {address: 1623, mask: 64, collected: 0}
-    EAST_PALACE6:item1: {address: 1697, mask: 128, collected: 0}
+    PALACE6:item1: {address: 1697, mask: 128, collected: 0}
     EAST_TOWN_DARUNIA:upstab_man: {address: 1941, mask: 4, collected: 1}
     EAST_TOWN_DARUNIA:wizard: {address: 1914, mask: 64, collected: 1}
     EAST_TOWN_NABOORU:fountain: {address: 1941, mask: 128, collected: 1}
@@ -43,7 +43,7 @@ Z2R:
     WEST_CAVE_PBAG: {address: 1542, mask: 4, collected: 0}
     WEST_CAVE_TROPHY: {address: 1552, mask: 8, collected: 0}
     WEST_GRASS: {address: 1555, mask: 32, collected: 0}
-    WEST_PALACE2:item1: {address: 1677, mask: 64, collected: 0}
+    PALACE2:item1: {address: 1677, mask: 64, collected: 0}
     WEST_TOWN_MIDO:downstab_man: {address: 1941, mask: 8, collected: 1}
     WEST_TOWN_MIDO:wizard: {address: 1914, mask: 1, collected: 1}
     WEST_TOWN_RAURU:wizard: {address: 1914, mask: 8, collected: 1}
@@ -58,10 +58,10 @@ Z2R:
     EAST_CAVE_PBAG1: [[]]
     EAST_CAVE_PBAG2: [[]]
     EAST_DESERT: [[]]
-    EAST_GREAT_PALACE:boss: [[GLOVE, KEY], [FAIRY, FOUR_CONTAINERS, GLOVE]]
-    EAST_PALACE5:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
-    EAST_PALACE6:boss: [[FLUTE, KEY], [FAIRY, FLUTE, FOUR_CONTAINERS]]
-    EAST_PALACE6:item1: [[FLUTE, KEY], [FAIRY, FLUTE, FOUR_CONTAINERS]]
+    GREAT_PALACE:boss: [[GLOVE, KEY], [FAIRY, FOUR_CONTAINERS, GLOVE]]
+    PALACE5:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
+    PALACE6:boss: [[FLUTE, KEY], [FAIRY, FLUTE, FOUR_CONTAINERS]]
+    PALACE6:item1: [[FLUTE, KEY], [FAIRY, FLUTE, FOUR_CONTAINERS]]
     EAST_TOWN_DARUNIA:upstab_man: [[FAIRY, FOUR_CONTAINERS], [JUMP, TWO_CONTAINERS]]
     EAST_TOWN_DARUNIA:wizard: [[CHILD]]
     EAST_TOWN_NABOORU:fountain: [[FLUTE]]
@@ -73,17 +73,17 @@ Z2R:
     EAST_WATER: [[BOOTS]]
     MI_CHILD_DROP: [[RAFT]]
     MI_MAGIC_CONTAINER_DROP: [[RAFT]]
-    MI_PALACE4:boss: [[DOWNSTAB, GLOVE, KEY, RAFT, UPSTAB], [DOWNSTAB, FAIRY, FOUR_CONTAINERS, GLOVE, RAFT, UPSTAB]]
+    PALACE4:boss: [[DOWNSTAB, GLOVE, KEY, RAFT, UPSTAB], [DOWNSTAB, FAIRY, FOUR_CONTAINERS, GLOVE, RAFT, UPSTAB]]
     WEST_CAVE_HEART_CONTAINER: [[]]
     WEST_CAVE_MAGIC_CONTAINER: [[]]
     WEST_CAVE_MEDICINE: [[]]
     WEST_CAVE_PBAG: [[]]
     WEST_CAVE_TROPHY: [[]]
     WEST_GRASS: [[]]
-    WEST_PALACE1:boss: [[FAIRY, FOUR_CONTAINERS, REFLECT], [FOUR_CONTAINERS, KEY, REFLECT]]
-    WEST_PALACE2:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
-    WEST_PALACE2:item1: [[FAIRY, FOUR_CONTAINERS]]
-    WEST_PALACE3:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
+    PALACE1:boss: [[FAIRY, FOUR_CONTAINERS, REFLECT], [FOUR_CONTAINERS, KEY, REFLECT]]
+    PALACE2:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
+    PALACE2:item1: [[FAIRY, FOUR_CONTAINERS]]
+    PALACE3:boss: [[KEY], [FAIRY, FOUR_CONTAINERS]]
     WEST_TOWN_MIDO:downstab_man: [[FAIRY, FOUR_CONTAINERS], [JUMP, TWO_CONTAINERS]]
     WEST_TOWN_MIDO:wizard: [[MEDICINE]]
     WEST_TOWN_RAURU:wizard: [[]]

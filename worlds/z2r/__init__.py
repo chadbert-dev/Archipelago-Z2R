@@ -177,6 +177,7 @@ class Z2RWorld(World):
     def fill_slot_data(self) -> dict[str, Any]:
         return {
             "locations": {name: dict(data) for name, data in self.options.locations.value.items()},
+            "events": {name: dict(data) for name, data in self.options.events.value.items()},
             "start_magic_containers": self.options.start_magic_containers.value,
             "start_heart_containers": self.options.start_heart_containers.value,
             "replace_fire_with_dash": bool(self.options.replace_fire_with_dash),
