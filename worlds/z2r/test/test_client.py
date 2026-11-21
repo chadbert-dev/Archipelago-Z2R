@@ -26,7 +26,7 @@ class TestContainers(unittest.TestCase):
         fake = FakeRam(ram)
         names = {ITEM_NAME_TO_ID[name]: name for name in received}
         ctx = SimpleNamespace(
-            bizhawk_ctx=None, game="Z2R",
+            bizhawk_ctx=None, game="Z2R", team=0, slot=1, stored_data={}, set_notify=lambda *keys: None,
             items_received=[SimpleNamespace(item=ITEM_NAME_TO_ID[name]) for name in received],
             item_names=SimpleNamespace(lookup_in_game=lambda item, game: names[item]),
             slot_data={"start_magic_containers": 4, "start_heart_containers": 4,
@@ -53,6 +53,17 @@ class TestContainers(unittest.TestCase):
     def test_no_refill_when_nothing_was_added(self) -> None:
         fake = self.run_check(["Magic Container", "Heart Container"], {0x0783: 5, 0x0784: 5})
         self.assertEqual(fake.writes, [])
+
+    def test_new_item_plays_item_get_fanfare(self) -> None:
+        fake = self.run_check(["Heart Container"], {0x0784: 4, 0x0783: 4})
+        written = {address: value for address, value, _ in fake.writes}
+        self.assertEqual(written[Client.MUSIC_REQUEST_ADDRESS], [Client.ITEM_GET_FANFARE])
+
+    def test_basement_bit_alone_plays_no_fanfare(self) -> None:
+        # Starting containers already meet the requirement: only the basement bit is written
+        fake = self.run_check(["Magic Container"], {0x0783: 8, 0x0784: 4})
+        written = {address: value for address, value, _ in fake.writes}
+        self.assertNotIn(Client.MUSIC_REQUEST_ADDRESS, written)
 
 
 class FakeRom:
@@ -119,7 +130,7 @@ class TestTownSigns(unittest.TestCase):
 
     def run_check(self, ctx, rom: FakeRom, client: Client.Z2RClient | None = None) -> Client.Z2RClient:
         client = client or Client.Z2RClient()
-        with mock.patch.object(Client.bizhawk, "read", rom.read), mock.patch.object(Client.bizhawk, "write", rom.write):
+        with mock.patch.object(Client.bizhawk, "read", rom.read), mock.patch.object(Client.bizhawk, "write", rom.write), mock.patch.object(Client.bizhawk, "guarded_write", lambda _c, w, _g: rom.write(_c, w)):
             asyncio.run(client.sign_check(ctx))
         return client
 
@@ -230,6 +241,7 @@ class TestHelpfulHints(unittest.TestCase):
 
         return SimpleNamespace(
             bizhawk_ctx=None, slot=1, seed_name="12345", sent=sent, send_msgs=send_msgs,
+            player_names={1: "GOB-Z2R", 2: "TETRA"},
             slot_data={"locations": {}, "hint_slots": [[32], [85, 97]],
                        "hint_places": {self.GRASS: "go west to$find the$", self.PALACE: "horsehead$neighs$with the$"}},
             locations_info={LOCATION_NAME_TO_ID[name]: SimpleNamespace(player=player, item=ids[name], flags=flags)
@@ -239,7 +251,7 @@ class TestHelpfulHints(unittest.TestCase):
 
     def run_check(self, ctx, rom: FakeRom, client: Client.Z2RClient | None = None) -> Client.Z2RClient:
         client = client or Client.Z2RClient()
-        with mock.patch.object(Client.bizhawk, "read", rom.read), mock.patch.object(Client.bizhawk, "write", rom.write):
+        with mock.patch.object(Client.bizhawk, "read", rom.read), mock.patch.object(Client.bizhawk, "write", rom.write), mock.patch.object(Client.bizhawk, "guarded_write", lambda _c, w, _g: rom.write(_c, w)):
             asyncio.run(client.hint_check(ctx))
         return client
 
@@ -249,8 +261,8 @@ class TestHelpfulHints(unittest.TestCase):
     def test_hints_name_own_and_other_items(self) -> None:
         rom = self.make_rom()
         self.run_check(self.make_ctx({self.GRASS: (1, "Hammer", 1), self.PALACE: (2, "Progressive Sword", 1)}), rom)
-        expected = {Client.hint_bytes("go west to$find the$HAMMER", 0)[:-1],
-                    Client.hint_bytes("horsehead$neighs$with the$SWORD$UPGRADE", 0)[:-1]}
+        expected = {Client.hint_bytes("GRASS TILE$HAS YOUR$HAMMER", 0)[:-1],
+                    Client.hint_bytes("P1 HAS$TETRAS$PROGRESSIVE$SWORD", 1)[:-1]}
         self.assertEqual(self.written(rom), expected)
         self.assertEqual(self.hint(rom, self.HINT_A)[-1], 0x80)
         self.assertEqual(self.hint(rom, self.HINT_B)[-1], 0x81)
@@ -259,7 +271,7 @@ class TestHelpfulHints(unittest.TestCase):
         rom = self.make_rom()
         self.run_check(self.make_ctx({self.GRASS: (1, "Hammer", 1),
                                       self.PALACE: (2, "Alpha Bravo Charlie Delta Echo Foxtrot", 1)}), rom)
-        self.assertIn(Client.hint_bytes("horsehead$neighs$with the$AP$ITEM", 0)[:-1], self.written(rom))
+        self.assertIn(Client.hint_bytes("P1 HAS$TETRAS AP$ITEM", 1)[:-1], self.written(rom))
 
     def test_progression_items_are_hinted_first(self) -> None:
         rom = self.make_rom()
@@ -267,7 +279,7 @@ class TestHelpfulHints(unittest.TestCase):
         ctx = self.make_ctx({self.GRASS: (1, "Small Key", 0), self.PALACE: (1, "Hammer", 1)})
         ctx.slot_data["hint_slots"] = [[32]]
         self.run_check(ctx, rom)
-        self.assertEqual(self.hint(rom, self.HINT_A), Client.hint_bytes("horsehead$neighs$with the$HAMMER", 0))
+        self.assertEqual(self.hint(rom, self.HINT_A), Client.hint_bytes("P1 HAS YOUR$HAMMER", 0))
 
     def test_other_text_is_left_alone(self) -> None:
         rom = self.make_rom()
@@ -275,6 +287,24 @@ class TestHelpfulHints(unittest.TestCase):
         before = self.hint(rom, self.HINT_A)
         self.run_check(self.make_ctx({self.GRASS: (1, "Hammer", 1), self.PALACE: (1, "Raft", 1)}), rom)
         self.assertEqual(self.hint(rom, self.HINT_A), before)
+
+    def test_restarted_client_updates_its_own_hints_without_warning(self) -> None:
+        # a client wrote these hints, then restarted (forgetting what it wrote) while the game kept the text
+        rom = self.make_rom()
+        rom.put(self.HINT_A, Client.hint_bytes("OLD$HINT", 0))
+        rom.put(self.HINT_B, Client.hint_bytes("OLD$HINT", 1))
+        client = Client.Z2RClient()
+        with self.assertNoLogs(Client.logger, level="WARNING"):
+            self.run_check(self.make_ctx({self.GRASS: (1, "Hammer", 1), self.PALACE: (1, "Raft", 1)}), rom, client)
+        self.assertNotIn(Client.hint_bytes("OLD$HINT", 0), {self.hint(rom, self.HINT_A), self.hint(rom, self.HINT_B)})
+        self.assertNotIn(Client.hint_bytes("OLD$HINT", 1), {self.hint(rom, self.HINT_A), self.hint(rom, self.HINT_B)})
+
+    def test_text_with_another_slots_marker_is_left_alone(self) -> None:
+        rom = self.make_rom()
+        other = Client.hint_bytes("OLD$HINT", 5)
+        rom.put(self.HINT_A, other)
+        self.run_check(self.make_ctx({self.GRASS: (1, "Hammer", 1), self.PALACE: (1, "Raft", 1)}), rom)
+        self.assertEqual(self.hint(rom, self.HINT_A), other)
 
     def test_no_hint_slots_does_nothing(self) -> None:
         rom = self.make_rom()

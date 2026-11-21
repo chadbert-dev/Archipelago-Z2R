@@ -9,7 +9,7 @@ from .Locations import (CRYSTAL_ITEM, FORMAT_VERSION, GOAL_EVENT, LOCATION_NAME_
                         Z2RLocation)
 from .Options import Z2ROptions
 from .Client import Z2RClient  # required to register the client with the BizHawk client
-from .spell_hints import SPELL_HINT_ITEMS, spell_hint_text
+from .spell_hints import SPELL_HINT_ITEMS, spell_hint_text, unplaced_spell_hint_text
 
 
 class Z2RWeb(WebWorld):
@@ -198,6 +198,7 @@ class Z2RWorld(World):
             "rom_hash": self.options.hash.value,
             "hint_slots": [list(slot) for slot in self.options.hint_slots.value],
             "hint_places": dict(self.options.hint_places.value),
+            "item_text_slots": dict(self.options.item_text_slots.value),
             "spell_hints": self.spell_hint_texts(),
             "spell_hint_slots": dict(self.options.spell_hint_slots.value),
         }
@@ -211,7 +212,13 @@ class Z2RWorld(World):
             if item is None or item.player != self.player or item.name not in SPELL_HINT_ITEMS:
                 continue
             same_game = self.multiworld.worlds[location.player].game == self.game
-            text = spell_hint_text(item.name, self.multiworld.get_player_name(location.player), location.name, same_game)
-            if text is not None:
-                texts[item.name] = text
+            text = spell_hint_text(item.name, self.multiworld.get_player_name(location.player), location.name,
+                                   same_game, own=location.player == self.player,
+                                   game=self.multiworld.worlds[location.player].game)
+            texts[item.name] = text
+        # a spell item in no location (a starting item, or one not in this game) still replaces its placeholder
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        for name in SPELL_HINT_ITEMS:
+            if name not in texts:
+                texts[name] = unplaced_spell_hint_text(name, name in precollected)
         return texts

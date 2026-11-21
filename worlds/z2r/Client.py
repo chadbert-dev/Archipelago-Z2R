@@ -3,12 +3,15 @@ import random
 import time
 from typing import NamedTuple, TYPE_CHECKING
 
+from BaseClasses import ItemClassification
 from NetUtils import ClientStatus
 
 import worlds._bizhawk as bizhawk
 from worlds._bizhawk.client import BizHawkClient
 from .Items import CONTAINER_ITEMS, ITEM_TABLE
 from .Locations import LOCATION_NAME_TO_ID
+from . import item_sprites
+from .place_names import PLACE_NAMES
 from .spell_hints import SPELL_HINT_ITEMS
 
 if TYPE_CHECKING:
@@ -76,6 +79,11 @@ BASEMENT_ACCESS_MASK = 0x08
 MAGIC_REFILL_ADDRESS = 0x070C
 LIFE_REFILL_ADDRESS = 0x070D
 LIFE_REFILL_AMOUNT = 0xF0
+# The game's music request byte. Picking up a key item or a container writes 0x10 here (CPU $E78B and $E80C in the
+# fixed bank) to play the item-get fanfare; the sound engine reads and clears it the next frame, plays the fanfare
+# for about 3 seconds, then resumes the area music (checked in FCEUX on a Z2R seed, 2026-11-20).
+MUSIC_REQUEST_ADDRESS = 0x00EB
+ITEM_GET_FANFARE = 0x10
 # The game only counts as "in control of Link" when the game event is the main loop and the game mode has settled
 # (GameMode == GameModeCurrent) on the overworld or a side view. Item presence bits read as "collected" and the flag
 # area is meaningless on the title screen and file select, so nothing is read or written otherwise.
@@ -151,6 +159,109 @@ def legacy_sign_bytes(name: str, town: int) -> bytes:
 
 SIGN_LINE_LENGTH = 11
 SIGN_MAX_CHARS = SIGN_SIZE - 2  # text characters that fit before the end byte and the town byte
+
+
+# Pickup messages: when Link picks up an AP item, the blank HUD row above MAGIC and LIFE shows what it was for
+# HUD_MESSAGE_SECONDS, written through the game's PPU buffer (address, length, tiles, then $FF), so Link keeps moving.
+HUD_MODE = 0x0B  # side view, the only mode with the HUD
+PPU_BUFFER = 0x0302  # PpuAddrHi; $FF when the buffer is empty
+HUD_MESSAGE_ADDRESS = 0x2022  # nametable row 1, column 2
+HUD_MESSAGE_WIDTH = 28
+HUD_MESSAGE_SECONDS = 10.0
+HUD_MESSAGE_SECONDS_BUSY = 5.0  # each message's time when more are waiting
+WATCHER_SECONDS = 0.1  # how often the client reads the game (the default is 0.5)
+SERVER_OFFLINE_AFTER = 3.0  # seconds without the AP server before the HUD says so (as the FCEUX AP OFFLINE text)
+SERVER_OFFLINE_TEXT = "AP SERVER OFFLINE"
+ERROR_HUD_SECONDS = 8.0  # how often an error is put back in the HUD row
+EMULATOR_MESSAGE_SECONDS = 3.0  # gap between queued emulator messages (overworld item text)
+RECEIVED_CATCH_UP_LIMIT = 4  # more received items than this at once show as one count
+HUD_MESSAGE_STALE = 10.0  # a message older than this is dropped: it no longer matches what just happened
+BLANK_TILE = 0xF4
+PPU_BUFFER_LENGTH = 0x0301  # index of the buffer's $FF end; the game appends its own entries there
+# The HUD's tiles exist in every CHR bank only for letters, digits, - and /; other symbols are dialog-font only
+HUD_CHARACTERS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-/ ")
+
+
+def hud_message_bytes(text: str) -> bytes:
+    """The PPU buffer entry that writes text (cut and padded to HUD_MESSAGE_WIDTH) into the HUD message row."""
+    shown = "".join(c if c in HUD_CHARACTERS else " " for c in text.upper())
+    tiles = encode_text(shown)[:-1][:HUD_MESSAGE_WIDTH]
+    tiles += bytes([BLANK_TILE]) * (HUD_MESSAGE_WIDTH - len(tiles))
+    return bytes([HUD_MESSAGE_ADDRESS >> 8, HUD_MESSAGE_ADDRESS & 0xFF, HUD_MESSAGE_WIDTH]) + tiles + bytes([0xFF])
+
+
+def _shown(text: str) -> str:
+    """Text as the game can show it: upper case, characters the font has, single spaces."""
+    kept = "".join(c if "A" <= c <= "Z" or "0" <= c <= "9" or c in ".,!?-/" else " "
+                   for c in text.upper().replace("'", ""))
+    return " ".join(kept.split())
+
+
+def _fit_item(item_name: str, room: int) -> str:
+    """The item name in at most `room` characters: the full name, else its sign short form (FIGHTER'S RING ->
+    F-RING), else the name cut at the last whole word that fits (cut mid-word only if one word is too long)."""
+    for candidate in (item_name, SIGN_SHORT_FORMS.get(item_name.upper(), "")):
+        shown = _shown(candidate)
+        if shown and len(shown) <= room:
+            return shown
+    shown = _shown(item_name)
+    head = shown[:room + 1]
+    if " " in head:  # cut at the last whole word that fits
+        return head.rsplit(" ", 1)[0].rstrip()
+    return "AP ITEM"  # even the first word is too long: a fragment would only confuse
+
+
+def pickup_message(item_name: str, player_name: str, own: bool) -> str:
+    """"GOT <item>" for an item of this slot, else "SENT <item> TO <player>", with the player cut at 11 characters
+    and the item shortened so the whole message fits HUD_MESSAGE_WIDTH."""
+    if own:
+        return f"GOT YOUR {_fit_item(item_name, HUD_MESSAGE_WIDTH - len('GOT YOUR '))}"
+    player = short_player_name(player_name) or "ANOTHER PLAYER"
+    room = HUD_MESSAGE_WIDTH - len("SENT  TO ") - len(player)
+    return f"SENT {_fit_item(item_name, room)} TO {player}"
+
+
+def received_message(item_name: str, player_name: str) -> str:
+    """"GOT <item> FROM <player>" for an item of this slot that another player sent, fitted to HUD_MESSAGE_WIDTH.
+    An empty player name means the server gave it (a starting item): "STARTED WITH <item>"."""
+    if not player_name:
+        return f"STARTED WITH {_fit_item(item_name, HUD_MESSAGE_WIDTH - len('STARTED WITH '))}"
+    player = short_player_name(player_name) or "ANOTHER PLAYER"
+    room = HUD_MESSAGE_WIDTH - len("GOT  FROM ") - len(player)
+    return f"GOT {_fit_item(item_name, room)} FROM {player}"
+
+
+# Item dialogs: the Z2R app reserves ITEM_TEXT_SIZE bytes for the dialog a town location shows when it gives its item,
+# "AP ITEM" padded with end bytes, with 0xC0 + the dialog's number last (CustomTexts.ArchipelagoItemTextPlaceholder)
+ITEM_TEXT_SIZE = 49
+ITEM_TEXT_BASE = 0xC0
+ITEM_TEXT_LINE = 11
+
+
+def has_marker(now_bytes: bytes, wanted: bytes) -> bool:
+    """True if now_bytes is a placeholder or text this client wrote for the same slot: same length, an end or padding
+    byte before the last one, and the same marker byte last. Every write keeps the placeholder's marker, so a client
+    that restarted (and forgot what it wrote) still knows the text is its own."""
+    return len(now_bytes) == len(wanted) and now_bytes[-2] == 0xFF and now_bytes[-1] == wanted[-1]
+
+
+def item_text_bytes(text: str, number: int) -> bytes | None:
+    """The ITEM_TEXT_SIZE bytes of an item dialog, or None if the text is too long to fit."""
+    encoded = encode_text(text)
+    if len(encoded) > ITEM_TEXT_SIZE - 1:
+        return None
+    padding = bytes([0xFF]) * (ITEM_TEXT_SIZE - 1 - len(encoded))
+    return encoded + padding + bytes([ITEM_TEXT_BASE + number])
+
+
+def item_dialog_text(item_name: str, player_name: str, own: bool, own_sign_name: str | None = None) -> str:
+    """The dialog for an item: "YOU GOT$YOUR$<item>" for this slot's item, else "YOU SENT$<item>$TO <player>" (the
+    player cut to the 8 characters left on the line). The item is two lines at most; AP$ITEM if it can't fit."""
+    item = (own_sign_name if own else None) or short_item_name(item_name, ITEM_TEXT_LINE) or "AP ITEM"
+    if own:
+        return f"YOU GOT$YOUR${item}"
+    player = (short_player_name(player_name) or "ANOTHER")[:ITEM_TEXT_LINE - len("TO ")].rstrip()
+    return f"YOU SENT${item}$TO {player}"
 
 
 def short_player_name(name: str) -> str | None:
@@ -251,6 +362,31 @@ def _fit(words: list[str], width: int | None = None) -> list[str] | None:
     return lines
 
 
+HINT_SENTENCE_WIDTH = 11  # the dialog box line, as on the town signs
+HINT_SENTENCE_LINES = 4
+
+
+def hint_sentence(place: str, item_name: str, owner: str | None) -> str:
+    """"<PLACE> HAS YOUR <ITEM>." for this slot's item (owner None), else "<PLACE> HAS <OWNER>S <ITEM>." (the font
+    has no apostrophe). Word-wrapped into at most four 11-character lines. A long item name falls back to its sign
+    short form, then AP ITEM."""
+    head = f"{place} HAS YOUR" if owner is None else f"{place} HAS {owner}S"
+    candidates = [item_name, SIGN_SHORT_FORMS.get(item_name.upper(), ""), "AP ITEM"]
+    for candidate in candidates:
+        item = _shown(candidate)
+        if not item:
+            continue
+        lines = _fit(f"{head} {item}".split(), HINT_SENTENCE_WIDTH)
+        if lines and len(lines) <= HINT_SENTENCE_LINES:
+            return "$".join(lines)
+    # still too long (a long place and a long owner): drop the owner, then the place
+    for fallback in (f"{place} HAS AP ITEM", "AP ITEM"):
+        lines = _fit(fallback.split(), HINT_SENTENCE_WIDTH)
+        if lines and len(lines) <= HINT_SENTENCE_LINES:
+            return "$".join(lines)
+    return "AP ITEM"
+
+
 def short_item_name(name: str, width: int | None = None) -> str | None:
     """An item name as at most two lines of HINT_LINE_LENGTH characters ($ between them), or None if it can't be
     made to fit and stay readable. Tries, in order: the full name; "Progressive X" as "X UPGRADE"; without filler
@@ -262,7 +398,7 @@ def short_item_name(name: str, width: int | None = None) -> str | None:
     if not words:
         return None
     if len(words) > 1 and words[0] == "PROGRESSIVE":
-        words = words[1:] + ["UPGRADE"]
+        words = words[1:] + ([] if words[-1] in ("UPGRADE", "UPGRADES") else ["UPGRADE"])
 
     def done(candidate: list[str]) -> str | None:
         lines = _fit(candidate, width)
@@ -307,6 +443,27 @@ class Z2RClient(BizHawkClient):
     next_hint_check: float
     next_spell_check: float
     hints_written: dict[int, bytes]
+    pickups_scout_retry: float
+    next_item_text_check: float
+    # text, queued at (None: never stale), and for received-item messages the z2r_hud_seen count to save once it shows
+    pickup_messages: list[tuple[str, float | None] | tuple[str, float | None, int]]
+    hud_queued: int  # received items already queued this connection (the server count moves only when they show)
+    hud_message_until: float | None
+    hud_message_text: str  # the message in the HUD now, to show again after a room change
+    hud_message_left: float | None  # seconds it had left when a room change wiped it
+    next_error_hud: float
+    server_lost_at: float | None  # when the AP server connection was first seen gone (None while connected)
+    offline_hud_shown: bool  # the HUD row shows SERVER_OFFLINE_TEXT and must be blanked after a reconnect
+    no_slots_logged: bool
+    sprite_banks: list[int] | None  # CHR banks holding the AP item tiles, found at the first side view
+    sprite_fixed: bool  # the AP item's left half is in the fixed tile (item_sprites.FIXED_LEFT_ADDRESS), not the 1-up's
+    sprite_wide: bool  # the ROM draws the AP item 16 pixels wide (item_sprites.RIGHT_TILE_ADDRESS); tiles are then
+    # 64 bytes, left then right
+    sprite_logo: bytes  # the AP item tiles as the ROM has them
+    sprite_sources: dict[int, bytes]  # the ROM's item tiles, by CHR address
+    sprite_shown: bytes | None  # what the AP item tiles were last set to
+    palette_address: int | None  # PRG ROM offset of the AP item's palette byte, if the ROM has the palette table
+    palette_shown: int | None  # what that byte was last set to
 
     def __init__(self) -> None:
         self.slot_name = ""
@@ -325,6 +482,26 @@ class Z2RClient(BizHawkClient):
         self.next_hint_check = 0.0
         self.next_spell_check = 0.0
         self.hints_written = {}
+        self.pickups_scout_retry = 0.0
+        self.next_item_text_check = 0.0
+        self.pickup_messages = []
+        self.messages_flashed = []
+        self.hud_queued = 0
+        self.hud_message_until = None
+        self.hud_message_text = ""
+        self.hud_message_left = None
+        self.next_error_hud = 0.0
+        self.server_lost_at = None
+        self.offline_hud_shown = False
+        self.no_slots_logged = False
+        self.sprite_banks = None
+        self.sprite_fixed = False
+        self.sprite_wide = False
+        self.sprite_logo = b""
+        self.sprite_sources = {}
+        self.sprite_shown = None
+        self.palette_address = None
+        self.palette_shown = None
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
@@ -352,6 +529,32 @@ class Z2RClient(BizHawkClient):
         self.next_hint_check = 0.0
         self.next_spell_check = 0.0
         self.hints_written = {}
+        self.pickups_scout_retry = 0.0
+        self.next_item_text_check = 0.0
+        self.pickup_messages = []
+        self.messages_flashed = []
+        self.hud_queued = 0
+        self.hud_message_until = None
+        self.hud_message_text = ""
+        self.hud_message_left = None
+        self.next_error_hud = 0.0
+        self.server_lost_at = None
+        self.offline_hud_shown = False
+        self.no_slots_logged = False
+        self.sprite_banks = None
+        self.sprite_fixed = False
+        self.sprite_wide = False
+        self.sprite_logo = b""
+        self.sprite_sources = {}
+        self.sprite_shown = None
+        self.palette_address = None
+        self.palette_shown = None
+        ctx.watcher_timeout = WATCHER_SECONDS  # check the game more often than the 0.5 s default so a pickup shows sooner
+        # FCEUX shows one emulator message at a time: space queued ones out so each can be read
+        try:
+            await bizhawk.set_message_interval(ctx.bizhawk_ctx, EMULATOR_MESSAGE_SECONDS)
+        except bizhawk.RequestFailedError:
+            pass
         ctx.game = self.game
         ctx.items_handling = 0b111
         ctx.want_slot_data = True
@@ -369,7 +572,11 @@ class Z2RClient(BizHawkClient):
         ctx.auth = self.slot_name
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
-        if ctx.server is None or ctx.server.socket.closed or ctx.slot_data is None:
+        if ctx.server is None or ctx.server.socket.closed:
+            await self.server_offline_check(ctx)
+            return
+        self.server_lost_at = None
+        if ctx.slot_data is None:
             return
 
         # The signature holds the first 32 characters of the seed, with non-ASCII characters replaced by "?"
@@ -381,11 +588,13 @@ class Z2RClient(BizHawkClient):
                              f"expects seed '{expected_seed}' with hash '{expected_hash}'. Open the ROM that "
                              f"matches your YAML.")
                 self.seed_mismatch_logged = True
+            await self.show_error_on_hud(ctx, "WRONG ROM FOR THIS SEED")
             return
 
         try:
             await self.sign_check(ctx)
             await self.hint_check(ctx)
+            await self.item_text_check(ctx)
             await self.spell_hint_check(ctx)
             event_bytes, mode_bytes = await bizhawk.read(
                 ctx.bizhawk_ctx, [(GAME_EVENT_ADDRESS, 1, RAM), (GAME_MODE_ADDRESS, 2, RAM)])
@@ -413,7 +622,11 @@ class Z2RClient(BizHawkClient):
                 return
             flags, game_complete = state[0], state[1][0]
 
+            if self.offline_hud_shown and mode == HUD_MODE and await self.write_hud_message(ctx, ""):
+                self.offline_hud_shown = False  # connected again: blank the offline text
             await self.location_check(ctx, flags)
+            await self.hud_message_check(ctx, mode)
+            await self.item_sprite_check(ctx, mode)
             await self.event_check(ctx, flags)
             if game_complete & GAME_COMPLETE_MASK and not ctx.finished_game:
                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
@@ -440,8 +653,251 @@ class Z2RClient(BizHawkClient):
 
         for location_id in await ctx.check_locations(checked):
             ctx.locations_checked.add(location_id)
+            # a location whose dialog names the item (item_text_slots) needs no HUD message
+            in_dialog = ctx.location_names.lookup_in_game(location_id) in ctx.slot_data.get("item_text_slots", {})
+            message = None if in_dialog else self.pickup_text(ctx, location_id)
+            if message:
+                self.pickup_messages.append((message, time.monotonic()))
             logger.info(f"New Check: {ctx.location_names.lookup_in_game(location_id)} "
                         f"({len(ctx.locations_checked)}/{len(ctx.missing_locations) + len(ctx.checked_locations)})")
+
+    def pickup_text(self, ctx: "BizHawkClientContext", location_id: int) -> str | None:
+        """The pickup message for a location this slot just checked, or None if its item isn't known yet."""
+        info = ctx.locations_info.get(location_id)
+        if info is None:
+            return None
+        item_name = ctx.item_names.lookup_in_slot(info.item, info.player)
+        return pickup_message(item_name, ctx.player_names.get(info.player, ""), info.player == ctx.slot)
+
+    async def item_text_check(self, ctx: "BizHawkClientContext") -> None:
+        """Fill the item dialogs (wizards, trainers, Saria's table, Nabooru's fountain, Bagu) with the item each
+        location holds, from slot data (item_text_slots). Only a placeholder or text this client wrote is
+        overwritten. Repeats every SIGN_RECHECK_SECONDS, since reloading the ROM brings the placeholders back."""
+        now = time.monotonic()
+        if now < self.next_item_text_check:
+            return
+        slots = ctx.slot_data.get("item_text_slots", {})
+        if not slots:
+            self.next_item_text_check = float("inf")
+            return
+        ready = [(name, index, number) for name, (index, number) in slots.items()
+                 if LOCATION_NAME_TO_ID.get(name) in ctx.locations_info]
+        if not ready:
+            return  # wait for the scout reply
+        self.next_item_text_check = now + SIGN_RECHECK_SECONDS
+        addresses = await self.text_addresses(ctx, [index for _name, index, _number in ready])
+        current = await bizhawk.read(ctx.bizhawk_ctx, [(address, ITEM_TEXT_SIZE, "PRG ROM") for address in addresses])
+        writes = []
+        for (name, _index, number), address, now_bytes in zip(ready, addresses, current):
+            info = ctx.locations_info[LOCATION_NAME_TO_ID[name]]
+            own = info.player == ctx.slot
+            if own:
+                item_name = ctx.item_names.lookup_in_game(info.item, self.game)
+            else:
+                item_name = ctx.item_names.lookup_in_slot(info.item, info.player)
+            text = item_dialog_text(item_name, ctx.player_names.get(info.player, ""), own, SIGN_NAMES.get(item_name))
+            wanted = item_text_bytes(text, number)
+            if wanted is None or now_bytes == wanted:
+                continue
+            if has_marker(now_bytes, wanted) or now_bytes == self.hints_written.get(address):
+                writes.append((address, wanted, "PRG ROM"))
+                self.hints_written[address] = wanted
+            else:
+                self.note_missing_slots("item dialog")
+        if writes:
+            # guarded: nothing is written if the game left the state it was read in (a dialog opened, a room changed)
+            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
+            logger.debug(f"Wrote {len(writes)} item dialog(s)")
+
+    async def hud_message_check(self, ctx: "BizHawkClientContext", mode: int) -> None:
+        """Show queued pickup messages in the HUD one at a time for HUD_MESSAGE_SECONDS each, then blank the row.
+        Scouts every location (again after a reconnect) so a pickup's item is known when it happens. Writes only in side view, and only
+        when the game's PPU buffer is empty, so the game's own screen updates are never overwritten."""
+        now = time.monotonic()
+        wanted = ctx.missing_locations | ctx.checked_locations
+        known = getattr(ctx, "locations_info", {})
+        # a reconnect clears what the server told us, so ask again (at most every SCOUT_RETRY_SECONDS) until known
+        if any(location_id not in known for location_id in wanted) and now >= self.pickups_scout_retry:
+            await ctx.send_msgs([{"cmd": "LocationScouts", "locations": sorted(wanted), "create_as_hint": 0}])
+            self.pickups_scout_retry = now + SCOUT_RETRY_SECONDS
+        if mode != HUD_MODE:
+            # No HUD outside side view (the overworld): show each new message once as an emulator message right away.
+            # It still shows in the HUD at the next side view.
+            # (kept by identity: two queued messages can have the same text)
+            flashed = self.messages_flashed
+            self.messages_flashed = [entry for entry in self.pickup_messages if any(entry is f for f in flashed)]
+            for entry in self.pickup_messages:
+                if not any(entry is f for f in self.messages_flashed):
+                    self.messages_flashed.append(entry)
+                    await bizhawk.display_message(ctx.bizhawk_ctx, entry[0])
+            if self.hud_message_until is not None:
+                # a room change redraws the HUD and wipes the message: show it again in the next room, for the time
+                # it had left (at least HUD_MESSAGE_SECONDS_BUSY, so it can be read)
+                if now < self.hud_message_until:
+                    self.hud_message_left = max(self.hud_message_until - now, HUD_MESSAGE_SECONDS_BUSY)
+                self.hud_message_until = None
+            return
+        if self.hud_message_left is not None:
+            if await self.write_hud_message(ctx, self.hud_message_text):
+                self.hud_message_until = now + self.hud_message_left
+                self.hud_message_left = None
+            return
+        if self.hud_message_until is not None:
+            if now < self.hud_message_until:
+                return
+            if await self.write_hud_message(ctx, ""):
+                self.hud_message_until = None
+            return
+        while (self.pickup_messages and self.pickup_messages[0][1] is not None
+               and now - self.pickup_messages[0][1] > HUD_MESSAGE_STALE):
+            self.pickup_messages.pop(0)
+        if self.pickup_messages and await self.write_hud_message(ctx, self.pickup_messages[0][0]):
+            entry = self.pickup_messages.pop(0)
+            self.hud_message_text = entry[0]
+            if len(entry) > 2:
+                await self.save_hud_seen(ctx, entry[2])  # counted as seen only now that it is on screen
+            busy = bool(self.pickup_messages)
+            self.hud_message_until = now + (HUD_MESSAGE_SECONDS_BUSY if busy else HUD_MESSAGE_SECONDS)
+
+    async def item_sprite_check(self, ctx: "BizHawkClientContext", mode: int) -> None:
+        """In a side view room whose AP item is one of this slot's own Z2R items, draw it as that item; anywhere else
+        keep the AP logo. See item_sprites."""
+        if mode != HUD_MODE:
+            return
+        if self.sprite_banks is None and not await self.find_sprite_banks(ctx):
+            return
+        room = await bizhawk.guarded_read(ctx.bizhawk_ctx, [
+            (item_sprites.WORLD_NUMBER, 1, RAM), (item_sprites.REGION_NUMBER, 1, RAM),
+            (item_sprites.MAP_NUMBER, 1, RAM), (item_sprites.LINK_PAGE, 1, RAM)], self.guards)
+        if room is None:
+            return
+        world, region, map_number, link_page = (value[0] for value in room)
+        wanted, palette = self.sprite_logo, item_sprites.AP_PALETTE
+        known = getattr(ctx, "locations_info", {})
+        for name in item_sprites.room_locations(ctx.slot_data["locations"], world, region, map_number, link_page):
+            info = known.get(LOCATION_NAME_TO_ID.get(name))
+            if info is None:
+                break  # not scouted yet: keep the logo
+            if info.flags & ItemClassification.progression:
+                palette = item_sprites.AP_PROGRESSION_PALETTE  # another player's progression item: red logo
+            if info.player == ctx.slot:
+                item_name = ctx.item_names.lookup_in_game(info.item, self.game)
+                draw = item_sprites.wide_item_sprite if self.sprite_wide else item_sprites.item_sprite
+                sprite = draw(item_name, self.sprite_sources)
+                if sprite:
+                    wanted, palette = sprite, item_sprites.item_palette(item_name)
+            break
+        if self.palette_address is None:
+            palette = self.palette_shown  # an older ROM without the palette table: leave its palette alone
+        if wanted == self.sprite_shown and palette == self.palette_shown:
+            return
+        left = wanted[:item_sprites.TILE_BYTES]
+        if self.sprite_fixed:
+            writes = [(item_sprites.FIXED_LEFT_ADDRESS, left, item_sprites.CHR_DOMAIN)]
+        else:
+            writes = [(bank * item_sprites.BANK_SIZE + item_sprites.AP_TILE_OFFSET, left, item_sprites.CHR_DOMAIN)
+                      for bank in self.sprite_banks]
+        if self.sprite_wide:
+            writes.append((item_sprites.RIGHT_TILE_ADDRESS, wanted[item_sprites.TILE_BYTES:], item_sprites.CHR_DOMAIN))
+        if self.palette_address is not None:
+            writes.append((self.palette_address, bytes([palette]), item_sprites.PRG_DOMAIN))
+        room_guards = [(item_sprites.WORLD_NUMBER, [world], RAM), (item_sprites.REGION_NUMBER, [region], RAM),
+                       (item_sprites.MAP_NUMBER, [map_number], RAM)]
+        if await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, [*self.guards, *room_guards]):
+            self.sprite_shown, self.palette_shown = wanted, palette
+
+    async def find_sprite_banks(self, ctx: "BizHawkClientContext") -> bool:
+        """Read the AP item tiles from each CHR bank and the ROM's item tiles. The banks holding the same tiles as
+        bank REFERENCE_BANK (the 1-up's home, CHR.ONEUP in the app) are the ones the AP item can be drawn from."""
+        size = await bizhawk.get_memory_size(ctx.bizhawk_ctx, item_sprites.CHR_DOMAIN)
+        banks = range(size // item_sprites.BANK_SIZE)
+        if item_sprites.REFERENCE_BANK not in banks:
+            self.sprite_banks = []
+            return False
+        reads = [(bank * item_sprites.BANK_SIZE + item_sprites.AP_TILE_OFFSET, item_sprites.TILE_BYTES,
+                  item_sprites.CHR_DOMAIN) for bank in banks]
+        reads += [(address, item_sprites.TILE_BYTES, item_sprites.CHR_DOMAIN)
+                  for address in item_sprites.SOURCE_ADDRESSES]
+        reads.append((item_sprites.RIGHT_TILE_ADDRESS, item_sprites.TILE_BYTES, item_sprites.CHR_DOMAIN))
+        reads.append((item_sprites.FIXED_LEFT_ADDRESS, item_sprites.TILE_BYTES, item_sprites.CHR_DOMAIN))
+        reads.append((item_sprites.PALETTE_LOAD, 3, item_sprites.PRG_DOMAIN))
+        data = [bytes(value) for value in await bizhawk.read(ctx.bizhawk_ctx, reads)]
+        ap_tiles, sources, right, fixed = data[:len(banks)], data[len(banks):-3], data[-3], data[-2]
+        self.palette_address = item_sprites.palette_address(data[-1])
+        if self.palette_address is not None:
+            # may still hold an item's palette from before a client restart; the next check fixes it if so
+            palette = await bizhawk.read(ctx.bizhawk_ctx, [(self.palette_address, 1, item_sprites.PRG_DOMAIN)])
+            self.palette_shown = bytes(palette[0])[0]
+        self.sprite_sources = dict(zip(item_sprites.SOURCE_ADDRESSES, sources))
+        # Newer Z2R builds keep the AP item's left half in one fixed tile of the item sprite page, so there is one copy
+        # and the 1-up's tiles in every bank stay the 1-up's. Older builds leave that tile blank and use the 1-up's.
+        self.sprite_fixed = fixed != item_sprites.BLANK
+        if self.sprite_fixed:
+            reference = fixed
+            self.sprite_banks = []
+        else:
+            reference = ap_tiles[item_sprites.REFERENCE_BANK]
+            self.sprite_banks = [bank for bank, tiles in zip(banks, ap_tiles) if tiles == reference]
+        # The client may have been restarted while an item was drawn: then the CHR has that item, not the logo
+        # A ROM with the 16 pixel AP item has the logo's right half (or a drawn item's) in the right tile; older ROMs
+        # leave it blank. (A restart while an 8 pixel item was drawn also leaves it blank: that room's item is then
+        # squeezed until the next restart.)
+        self.sprite_wide = right != item_sprites.BLANK
+        names = [*item_sprites.ITEM_TILES, "1-Up"]
+        drawn = {item_sprites.item_sprite(name, self.sprite_sources) for name in names}
+        if self.sprite_wide:
+            drawn |= {wide[:item_sprites.TILE_BYTES] for name in names
+                      if (wide := item_sprites.wide_item_sprite(name, self.sprite_sources))}
+        logo = item_sprites.AP_LOGO if reference in drawn else reference
+        self.sprite_logo = logo + item_sprites.AP_LOGO_RIGHT if self.sprite_wide else logo
+        self.sprite_shown = reference + right if self.sprite_wide else reference
+        return True
+
+    async def server_offline_check(self, ctx: "BizHawkClientContext") -> None:
+        """The AP server connection is gone: after SERVER_OFFLINE_AFTER seconds say so in the HUD row (the connector's
+        AP OFFLINE text only covers losing this client). Only after the client had slot data, so starting the game
+        before the client has connected shows nothing."""
+        now = time.monotonic()
+        if self.server_lost_at is None:
+            self.server_lost_at = now
+        if getattr(ctx, "slot_data", None) is None or now - self.server_lost_at < SERVER_OFFLINE_AFTER:
+            return
+        await self.show_error_on_hud(ctx, SERVER_OFFLINE_TEXT)
+        self.offline_hud_shown = True
+
+    async def show_error_on_hud(self, ctx: "BizHawkClientContext", text: str) -> None:
+        """Put an error in the HUD row (every ERROR_HUD_SECONDS, since a redraw erases it), for problems the player
+        would otherwise only find in the client window. Only in side view, and only if the buffer is free."""
+        now = time.monotonic()
+        if now < self.next_error_hud:
+            return
+        try:
+            event_bytes, mode_bytes = await bizhawk.read(
+                ctx.bizhawk_ctx, [(GAME_EVENT_ADDRESS, 1, RAM), (GAME_MODE_ADDRESS, 2, RAM)])
+        except bizhawk.RequestFailedError:
+            return
+        event, mode, mode_current = event_bytes[0], mode_bytes[0], mode_bytes[1]
+        if event != GAME_EVENT_MAIN_LOOP or mode != HUD_MODE or mode_current != HUD_MODE:
+            return
+        self.guards = [(GAME_EVENT_ADDRESS, [event], RAM), (GAME_MODE_ADDRESS, [mode, mode_current], RAM)]
+        if await self.write_hud_message(ctx, text):
+            self.next_error_hud = now + ERROR_HUD_SECONDS
+
+    def note_missing_slots(self, kind: str) -> None:
+        """Say once that the ROM has none of the Z2R app's AP text slots (a seed made by an older app or without
+        Archipelago mode), which is why no AP text appears."""
+        if not self.no_slots_logged:
+            self.no_slots_logged = True
+            logger.warning(f"This ROM has no AP {kind} slots to fill in, so that text stays as the ROM has it. It was "
+                           f"probably made by an older Z2R build or without Archipelago mode: make a new seed.")
+
+    async def write_hud_message(self, ctx: "BizHawkClientContext", text: str) -> bool:
+        """Queue text for the HUD message row in the game's PPU buffer if it is empty. True if written."""
+        entry = hud_message_bytes(text)
+        # the buffer must be empty; set its length to our entry's end so the game appends after it, not over it
+        guards = [*self.guards, (PPU_BUFFER_LENGTH, [0], RAM), (PPU_BUFFER, [0xFF], RAM)]
+        return await bizhawk.guarded_write(
+            ctx.bizhawk_ctx, [(PPU_BUFFER_LENGTH, bytes([len(entry) - 1]) + entry, RAM)], guards)
 
     async def event_check(self, ctx: "BizHawkClientContext", flags: bytes) -> None:
         """Publish the game events that have happened (such as PALACE1:crystal) to the server's data storage, under
@@ -463,9 +919,57 @@ class Z2RClient(BizHawkClient):
         self.sent_events.update(reached)
         logger.info(f"Events reached: {', '.join(reached)}")
 
+    async def announce_received(self, ctx: "BizHawkClientContext") -> None:
+        """Queue a HUD message for each item another player sent this slot that hasn't been shown yet. How many
+        items have been shown is kept on the server, so items that arrived while another game was being played
+        show when this one connects, and a reconnect doesn't show them twice. The count moves when a message is
+        written to the HUD (save_hud_seen), not when it is queued, so a message still waiting for side view when
+        the player switches games or closes FCEUX shows next time. More than RECEIVED_CATCH_UP_LIMIT at once
+        become one "GOT N ITEMS" line."""
+        key = f"z2r_hud_seen_{ctx.team}_{ctx.slot}"
+        ctx.set_notify(key)
+        if key not in ctx.stored_data:
+            return  # wait for the server's count
+        total = len(ctx.items_received)
+        start = max(ctx.stored_data[key] or 0, self.hud_queued)
+        if total <= start:
+            return
+        self.hud_queued = total
+        # (seen count once this one shows, item, sender); own finds have pickup text, so they get no message
+        new = [(index + 1, ctx.item_names.lookup_in_slot(item.item, ctx.slot),
+                ctx.player_names.get(item.player, "") if item.player else "")
+               for index, item in enumerate(ctx.items_received[start:], start) if item.player != ctx.slot]
+        # the server ("Archipelago", player 0) gives starting items: they have no sender
+        if not new:
+            await self.save_hud_seen(ctx, total)  # nothing to show
+        elif len(new) > RECEIVED_CATCH_UP_LIMIT:
+            # starting items come from the server, not from other players: count each kind in its own line
+            groups = [("GOT {} STARTING ITEMS", [e for e in new if not e[2]]),
+                      ("GOT {} ITEMS FROM OTHERS", [e for e in new if e[2]])]
+            groups = [(text, group) for text, group in groups if group]
+            for position, (text, group) in enumerate(groups):
+                seen = total if position == len(groups) - 1 else max(e[0] for e in group)
+                line = text.format(len(group))
+                self.pickup_messages.append((line.replace("ITEMS", "ITEM") if len(group) == 1 else line, None, seen))
+        else:
+            # no time stamp: these wait for side view however long that takes, instead of going stale.
+            # The last one also covers any own finds after it.
+            new[-1] = (total,) + new[-1][1:]
+            self.pickup_messages.extend((received_message(name, sender), None, seen) for seen, name, sender in new)
+
+    async def save_hud_seen(self, ctx: "BizHawkClientContext", seen: int) -> None:
+        """Store on the server that the first `seen` received items have been shown."""
+        key = f"z2r_hud_seen_{ctx.team}_{ctx.slot}"
+        if seen <= (ctx.stored_data.get(key) or 0):
+            return
+        ctx.stored_data[key] = seen
+        await ctx.send_msgs([{"cmd": "Set", "key": key, "default": 0, "want_reply": False,
+                              "operations": [{"operation": "max", "value": seen}]}])
+
     async def received_items_check(self, ctx: "BizHawkClientContext", flags: bytes) -> None:
         """Make the game's inventory match everything received. Every write is absolute, so it is safe to repeat
         after a reconnect or a save reload."""
+        await self.announce_received(ctx)
         received: dict[str, int] = {}
         for network_item in ctx.items_received:
             name = ctx.item_names.lookup_in_game(network_item.item, ctx.game)
@@ -507,8 +1011,16 @@ class Z2RClient(BizHawkClient):
             writes.append((LIFE_REFILL_ADDRESS, [LIFE_REFILL_AMOUNT], RAM))
         if desired[magic_address] > current[magic_address]:
             writes.append((MAGIC_REFILL_ADDRESS, [(desired[magic_address] << 4) & 0xFF], RAM))
-        if writes:
-            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
+        if not writes:
+            return
+        if not await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards):
+            return
+        # A new item plays the game's own item-get fanfare, as a pickup would. The basement bit alone is not an item.
+        # Consumables (keys, 1-ups, jars, P-bags) are given in consumable_check and stay silent. Only request the
+        # fanfare when no other sound request is pending, so the game's own request that frame is not lost.
+        if any(address != BASEMENT_ACCESS_ADDRESS for address, _, _ in writes):
+            await bizhawk.guarded_write(ctx.bizhawk_ctx, [(MUSIC_REQUEST_ADDRESS, [ITEM_GET_FANFARE], RAM)],
+                                        [*self.guards, (MUSIC_REQUEST_ADDRESS, [0], RAM)])
 
     def wizard_towns(self, ctx: "BizHawkClientContext") -> dict[int, int]:
         """Location ID -> town type for each wizard location in this slot."""
@@ -569,7 +1081,8 @@ class Z2RClient(BizHawkClient):
                 writes.append((address, wanted, "PRG ROM"))
                 self.signs_written[address] = wanted
         if writes:
-            await bizhawk.write(ctx.bizhawk_ctx, writes)
+            # guarded: nothing is written if the game left the state it was read in (a dialog opened, a room changed)
+            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
             logger.debug(f"Wrote {len(writes)} town sign(s)")
 
     @staticmethod
@@ -582,21 +1095,24 @@ class Z2RClient(BizHawkClient):
         pointers = await bizhawk.read(ctx.bizhawk_ctx, [(entry, 2, "PRG ROM") for entry in entries])
         return [BANK3_PRG + int.from_bytes(pointer, "little") - 0x8000 for pointer in pointers]
 
-    def hint_item_text(self, ctx: "BizHawkClientContext", location_id: int) -> str:
-        """The item part of a hint: a Z2R item of this slot by its sign name, another item by a short form of its name
-        that fits two lines, or AP ITEM."""
-        item = ctx.locations_info[location_id]
-        if item.player == ctx.slot:
-            name = ctx.item_names.lookup_in_game(item.item, self.game)
-            return SIGN_NAMES.get(name) or short_item_name(name) or OTHER_ITEM_SIGN
-        name = ctx.item_names.lookup_in_slot(item.item, item.player)
-        return short_item_name(name) or OTHER_ITEM_SIGN
+    def hint_text(self, ctx: "BizHawkClientContext", location_id: int, location_name: str) -> str:
+        """A helpful hint naming the place and item: "P1 HAS YOUR <ITEM>." for this slot's own item, else
+        "P1 HAS <PLAYER>S <ITEM>."."""
+        info = ctx.locations_info[location_id]
+        if info.player == ctx.slot:
+            name = ctx.item_names.lookup_in_game(info.item, self.game)
+        else:
+            name = ctx.item_names.lookup_in_slot(info.item, info.player)
+        owner = None if info.player == ctx.slot else (
+            (short_player_name(ctx.player_names.get(info.player, "")) or f"PLAYER{info.player}")[:10].rstrip())
+        return hint_sentence(PLACE_NAMES.get(location_name, "SOMEWHERE"), name, owner)
 
     def choose_hints(self, ctx: "BizHawkClientContext", count: int) -> list[int]:
         """Pick the locations to hint at: progression items first, in an order fixed by the seed and slot so a
         reconnect writes the same hints."""
+        checked = getattr(ctx, "checked_locations", set())
         candidates = sorted(LOCATION_NAME_TO_ID[name] for name in ctx.slot_data.get("hint_places", {})
-                            if name in LOCATION_NAME_TO_ID)
+                            if name in LOCATION_NAME_TO_ID and LOCATION_NAME_TO_ID[name] not in checked)
         seed = getattr(ctx, "server_seed_name", None) or ctx.seed_name
         rng = random.Random(f"{seed}-{ctx.slot}-z2r-hints")
         rng.shuffle(candidates)
@@ -624,11 +1140,12 @@ class Z2RClient(BizHawkClient):
             wanted = spell_hint_bytes(texts[item], item)
             if wanted is None or now_bytes == wanted:
                 continue
-            if now_bytes == spell_hint_bytes("AP HINT", item) or now_bytes == self.hints_written.get(address):
+            if has_marker(now_bytes, wanted) or now_bytes == self.hints_written.get(address):
                 writes.append((address, wanted, "PRG ROM"))
                 self.hints_written[address] = wanted
         if writes:
-            await bizhawk.write(ctx.bizhawk_ctx, writes)
+            # guarded: nothing is written if the game left the state it was read in (a dialog opened, a room changed)
+            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
             logger.debug(f"Wrote {len(writes)} spell item hint(s)")
 
     async def hint_check(self, ctx: "BizHawkClientContext") -> None:
@@ -666,16 +1183,20 @@ class Z2RClient(BizHawkClient):
         for address, now_bytes in zip(addresses, current):
             number = numbers[address]
             location_id = chosen[number]
-            text = places[names[location_id]] + self.hint_item_text(ctx, location_id)
+            text = self.hint_text(ctx, location_id, names[location_id])
             wanted = hint_bytes(text, number)
             if wanted is None or now_bytes == wanted:
                 continue
-            # Only overwrite the app's placeholder or a hint this client wrote. Other text is left alone.
-            if now_bytes == hint_bytes("AP HINT", number) or now_bytes == self.hints_written.get(address):
+            # Only overwrite the app's placeholder or a hint this client wrote (it keeps the marker). Other text is left
+            # alone.
+            if has_marker(now_bytes, wanted) or now_bytes == self.hints_written.get(address):
                 writes.append((address, wanted, "PRG ROM"))
                 self.hints_written[address] = wanted
+            else:
+                self.note_missing_slots("hint")
         if writes:
-            await bizhawk.write(ctx.bizhawk_ctx, writes)
+            # guarded: nothing is written if the game left the state it was read in (a dialog opened, a room changed)
+            await bizhawk.guarded_write(ctx.bizhawk_ctx, writes, self.guards)
             logger.debug(f"Wrote {len(writes)} helpful hint(s)")
 
     async def consumable_check(self, ctx: "BizHawkClientContext", name: str) -> None:
