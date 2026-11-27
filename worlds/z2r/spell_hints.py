@@ -10,8 +10,8 @@ import textwrap
 # The order of the Z2R app's ARCHIPELAGO_SPELL_HINT_ITEMS: each placeholder's last byte is 0xA0 + its position
 SPELL_HINT_ITEMS = ("Trophy", "Medicine", "Child", "Mirror", "Water", "Downstab", "Upstab")
 
-# The name of each location in Z2R's own world, as the hint says it (two lines of 11 characters). Locations of
-# other games are named "ANOTHER GAME".
+# The name of each location in Z2R's own world, as the hint says it (two lines of 11 characters). A location not
+# listed here is named SOMEWHERE.
 HINT_LOCATION_NAMES: dict[str, str] = {
     "WEST_CAVE_MAGIC_CONTAINER": "MC CAVE",
     "WEST_CAVE_HEART_CONTAINER": "HC CAVE",
@@ -49,7 +49,7 @@ HINT_LOCATION_NAMES: dict[str, str] = {
 OTHER_GAME_LOCATION = "ANOTHER GAME"
 
 # Short names of other games' locations, by game, for hints about an item in another world. A location not listed
-# here is named OTHER_GAME_LOCATION.
+# here is named by its own name, cut to fit, or else by "IN <GAME>".
 OTHER_GAME_LOCATION_NAMES: dict[str, dict[str, str]] = {
     "ZORA": {
         "Armos": "ARMOS",
@@ -89,7 +89,7 @@ ALLOWED = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?-_")
 
 def _clean(name: str) -> str:
     """A name as the game can show it: upper case, the characters the font has, no extra spaces."""
-    text = "".join(c if c in ALLOWED else " " for c in name.upper())
+    text = "".join(c if c in ALLOWED else " " for c in name.upper().replace("'", ""))
     return " ".join(text.split())
 
 
@@ -99,18 +99,30 @@ def zora_level_name(location: str) -> str | None:
     return f"LEVEL {match.group(1)}" if match else None
 
 
+def _two_lines(text: str) -> list[str] | None:
+    """`text` in at most two lines of NAME_LENGTH characters, or None if it doesn't fit."""
+    lines = textwrap.wrap(text, NAME_LENGTH, break_long_words=False)
+    if not lines or len(lines) > 2 or any(len(line) > NAME_LENGTH for line in lines):
+        return None
+    return lines
+
+
 def spell_hint_text(item: str, owner: str, location: str, same_game: bool, own: bool = False,
                     game: str = "") -> str:
     """The hint for a spell item of this slot that sits in `location`. Another player's item: "<ITEM> AT", the owner's
-    name (cut to 11 characters), then the location. This slot's own item: "YOUR <ITEM> AT" then the location. The
-    location is in up to two lines; one that won't fit becomes ANOTHER GAME (or SOMEWHERE in this world), so the
-    NPC never keeps the AP HINT placeholder."""
-    where = (HINT_LOCATION_NAMES.get(location, OTHER_GAME_LOCATION) if same_game
-             else (zora_level_name(location) if game == "ZORA" else None)
-             or OTHER_GAME_LOCATION_NAMES.get(game, {}).get(location, OTHER_GAME_LOCATION))
-    lines = textwrap.wrap(where, NAME_LENGTH, break_long_words=False)
-    if len(lines) > 2 or any(len(line) > NAME_LENGTH for line in lines):
-        lines = textwrap.wrap("SOMEWHERE" if same_game else OTHER_GAME_LOCATION, NAME_LENGTH)
+    name (cut to 11 characters), then the location. This slot's own item: "YOUR <ITEM> AT" then the location.
+    In this world the location is its short name, or SOMEWHERE if it won't fit. In another game it is the short name
+    if there is one, else the location's own name, else the game's name, else ANOTHER GAME. Each is cut to fit two
+    lines, so the NPC never keeps the AP HINT placeholder."""
+    if same_game:
+        lines = _two_lines(HINT_LOCATION_NAMES.get(location, "SOMEWHERE")) or _two_lines("SOMEWHERE")
+    else:
+        short = ((zora_level_name(location) if game == "ZORA" else None)
+                 or OTHER_GAME_LOCATION_NAMES.get(game, {}).get(location))
+        game_name = _clean(game)
+        candidates = [short, _clean(location), f"IN {game_name}" if game_name else ""]
+        lines = next((fit for text in candidates if text and (fit := _two_lines(text))), None) \
+            or _two_lines(OTHER_GAME_LOCATION)
     if own:
         head = textwrap.wrap(f"YOUR {item.upper()} AT", NAME_LENGTH, break_long_words=False)
         return "$".join([*head[:2], *lines])

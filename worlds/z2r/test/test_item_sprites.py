@@ -82,15 +82,14 @@ PALACE_ROOM = {item_sprites.WORLD_NUMBER: 3, item_sprites.REGION_NUMBER: 0, item
 CAVE_ROOM = {item_sprites.WORLD_NUMBER: 0, item_sprites.REGION_NUMBER: 0, item_sprites.MAP_NUMBER: 17}
 
 
-def make_ctx(placements: dict[str, tuple[str, int]], slot: int = 1):
-    """placements: location -> (item name, player)."""
+def make_ctx(placements: dict[str, tuple[str, int]], slot: int = 1, flags: int = 0b010):
+    """placements: location -> (item name, player). Every item has `flags` (default useful: the orange logo)."""
     names = {ITEM_NAME_TO_ID[item]: item for item, _player in placements.values()}
     return SimpleNamespace(
         bizhawk_ctx=None, slot=slot, slot_data={"locations": LOCATIONS},
-        locations_info={LOCATION_NAME_TO_ID[location]: SimpleNamespace(item=ITEM_NAME_TO_ID[item], player=player, flags=0)
+        locations_info={LOCATION_NAME_TO_ID[location]: SimpleNamespace(item=ITEM_NAME_TO_ID[item], player=player, flags=flags)
                         for location, (item, player) in placements.items()},
-        item_names=SimpleNamespace(lookup_in_game=lambda item, game: names[item],
-                                   lookup_in_slot=lambda item, player: names.get(item, f"Unknown item {item}")))
+        item_names=SimpleNamespace(lookup_in_game=lambda item, game: names[item]))
 
 
 def run(client, ctx, emulator, mode=Client.HUD_MODE):
@@ -243,17 +242,21 @@ class TestItemSpriteCheck(unittest.TestCase):
         self.assertEqual(emulator.ap_tiles(0), PROGRESSION_LOGO)
         self.assertEqual(emulator.prg[PALETTE_BYTE], item_sprites.AP_PALETTE)
 
-    def test_other_players_minor_item_uses_the_white_logo(self) -> None:
+    def test_other_players_filler_item_uses_the_white_logo(self) -> None:
         emulator = FakeEmulator(PALACE_ROOM)
-        run(Client.Z2RClient(), make_ctx({"PALACE1:item1": ("Small Key", 2)}), emulator)
+        run(Client.Z2RClient(), make_ctx({"PALACE1:item1": ("Small Key", 2)}, flags=0), emulator)
         self.assertEqual(emulator.ap_tiles(0), item_sprites.solid(LOGO, item_sprites.MINOR_INDEX))
 
-    def test_other_games_item_uses_the_orange_logo(self) -> None:
-        emulator = FakeEmulator(PALACE_ROOM)
-        ctx = make_ctx({"PALACE1:item1": ("Small Key", 2)})
-        ctx.locations_info[LOCATION_NAME_TO_ID["PALACE1:item1"]].item = 9999  # an id from another game
-        run(Client.Z2RClient(), ctx, emulator)
-        self.assertEqual(emulator.ap_tiles(0), REGULAR_LOGO)
+    def test_logo_color_comes_from_the_flags_not_the_name(self) -> None:
+        # another game's item: a Z2R minor name doesn't matter, its class does (a trap shows as a regular item)
+        for flags, index in ((0, item_sprites.MINOR_INDEX), (0b100, item_sprites.REGULAR_INDEX),
+                             (0b011, item_sprites.PROGRESSION_INDEX)):
+            with self.subTest(flags=flags):
+                emulator = FakeEmulator(PALACE_ROOM)
+                ctx = make_ctx({"PALACE1:item1": ("Small Key", 2)}, flags=flags)
+                ctx.locations_info[LOCATION_NAME_TO_ID["PALACE1:item1"]].item = 9999  # an id from another game
+                run(Client.Z2RClient(), ctx, emulator)
+                self.assertEqual(emulator.ap_tiles(0), item_sprites.solid(LOGO, index))
 
     def test_restart_with_a_recolored_logo_drawn_recolors_from_it(self) -> None:
         # an earlier run left the red logo in the AP tiles; another player's regular item turns it orange
@@ -271,7 +274,7 @@ class TestItemSpriteCheck(unittest.TestCase):
             emulator.chr[at:at + 32] = PROGRESSION_LOGO
         at = item_sprites.RIGHT_TILE_ADDRESS
         emulator.chr[at:at + 32] = item_sprites.solid(item_sprites.AP_LOGO_RIGHT, item_sprites.PROGRESSION_INDEX)
-        run(Client.Z2RClient(), make_ctx({"PALACE1:item1": ("Small Key", 2)}), emulator)
+        run(Client.Z2RClient(), make_ctx({"PALACE1:item1": ("Small Key", 2)}, flags=0), emulator)
         self.assertEqual(emulator.ap_tiles(0), item_sprites.solid(LOGO, item_sprites.MINOR_INDEX))
         self.assertEqual(emulator.right_tiles(), item_sprites.solid(item_sprites.AP_LOGO_RIGHT, item_sprites.MINOR_INDEX))
 

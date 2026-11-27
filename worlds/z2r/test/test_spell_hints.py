@@ -42,12 +42,40 @@ class SpellHintTextTest(unittest.TestCase):
         from ..spell_hints import OTHER_GAME_LOCATION_NAMES
         for game, names in OTHER_GAME_LOCATION_NAMES.items():
             for location in names:
-                with self.subTest(game=game, location=location):
-                    self.assertIsNotNone(spell_hint_text("Upstab", "Gob-DWR", location, False, game=game))
+                for own in (True, False):
+                    with self.subTest(game=game, location=location, own=own):
+                        text = spell_hint_text("Upstab", "W" * 30, location, False, own=own, game=game)
+                        self.assertLessEqual(len(text.split("$")), 4)
+                        self.assertTrue(all(len(line) <= 11 for line in text.split("$")), text)
+                        self.assertIsNotNone(Client.spell_hint_bytes(text, "Upstab"))
+
+    def test_longest_hints_fit_the_npc_slot(self) -> None:
+        for item in SPELL_HINT_ITEMS:
+            for own in (True, False):
+                for location in ("Some Extremely Long Location Name Here", "Level 4 Room 0A Floor",
+                                 "Mmmmmmmmmmmmmmmmmmmm"):
+                    with self.subTest(item=item, own=own, location=location):
+                        text = spell_hint_text(item, "W" * 30, location, False, own=own, game="ZORA")
+                        self.assertLessEqual(len(text.split("$")), 4)
+                        self.assertTrue(all(len(line) <= 11 for line in text.split("$")), text)
+                        self.assertIsNotNone(Client.spell_hint_bytes(text, item))
+
+    def test_unlisted_own_world_location_is_somewhere(self) -> None:
+        self.assertEqual(spell_hint_text("Water", "Tetra", "NOT_A_REAL_LOC", True), "WATER AT$TETRA$SOMEWHERE")
 
     def test_location_too_long_falls_back_instead_of_none(self) -> None:
         text = spell_hint_text("Water", "Tetra", "Some Extremely Long Location Name Here", False, game="DWR")
-        self.assertEqual(text, "WATER AT$TETRA$ANOTHER$GAME")
+        self.assertEqual(text, "WATER AT$TETRA$IN DWR")
+
+    def test_other_game_location_fits_or_uses_game_name(self) -> None:
+        self.assertEqual(spell_hint_text("Trophy", "Tetra", "Armos", False, game="ZORA"),
+                         "TROPHY AT$TETRA$ARMOS")
+        self.assertEqual(spell_hint_text("Trophy", "Tetra", "Some Extremely Long Location", False, game="ZELDA"),
+                         "TROPHY AT$TETRA$IN ZELDA")
+        self.assertEqual(spell_hint_text("Trophy", "Tetra", "Garin's Grave Thing", False, game="ZELDA"),
+                         "TROPHY AT$TETRA$GARINS$GRAVE THING")
+        self.assertEqual(spell_hint_text("Trophy", "Tetra", "Some Extremely Long Location", False),
+                         "TROPHY AT$TETRA$ANOTHER$GAME")
 
     def test_unplaced_items_still_get_text(self) -> None:
         for item in SPELL_HINT_ITEMS:

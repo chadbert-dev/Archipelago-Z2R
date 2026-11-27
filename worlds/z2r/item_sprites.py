@@ -10,6 +10,8 @@ table base + map / 2, with the bit picked by the map's parity and the item's pag
 """
 from typing import NamedTuple
 
+from BaseClasses import ItemClassification
+
 CHR_DOMAIN = "CHR VROM"
 BANK_SIZE = 0x2000
 AP_TILE_OFFSET = 0x0A80  # the 1-up's tiles in each 8 KB CHR bank (CHR.ONEUP is 0x8A80, in bank 4)
@@ -39,10 +41,9 @@ AP_ITEM_ID = 0x26
 # One stable logo color for every AP item (palette 1, the one most items use), so the logo never changes by area.
 AP_PALETTE = 1
 # The logo is one solid color per class, all from palette 1 (red, orange, white), so every drawn pixel uses that index.
-PROGRESSION_INDEX = 1  # red: another player's progression item
-REGULAR_INDEX = 2  # orange: another player's regular item
-MINOR_INDEX = 3  # white: another player's minor item
-MINOR_ITEMS = {"Small Key", "Small P-Bag", "Large P-Bag", "Blue Magic Jar", "Red Magic Jar", "1-Up"}
+PROGRESSION_INDEX = 1  # red: progression
+REGULAR_INDEX = 2  # orange: useful or trap
+MINOR_INDEX = 3  # white: filler
 
 
 def solid(tiles: bytes, index: int) -> bytes:
@@ -56,10 +57,13 @@ def solid(tiles: bytes, index: int) -> bytes:
     return bytes(out)
 
 
-def logo_index(progression: bool, name: str | None) -> int:
-    if progression:
+def logo_index(flags: int) -> int:
+    """The logo's palette index for an item with these AP classification flags (any game)."""
+    if flags & ItemClassification.progression:
         return PROGRESSION_INDEX
-    return MINOR_INDEX if name in MINOR_ITEMS else REGULAR_INDEX
+    return REGULAR_INDEX if flags & (ItemClassification.useful | ItemClassification.trap) else MINOR_INDEX
+
+
 ITEM_PALETTES = {"Blue Magic Jar": 3, "Red Magic Jar": 2, "1-Up": 0}  # every other item: 1
 
 
