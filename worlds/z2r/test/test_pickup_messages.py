@@ -530,3 +530,26 @@ class ServerOfflineTest(unittest.TestCase):
         self.run_watcher(client, ctx, 10.0)
         self.assertEqual(len(self.run_watcher(client, ctx, 14.0)), 1)
         self.assertEqual(self.run_watcher(client, ctx, 15.0), [])
+
+
+class LocationCheckTest(unittest.TestCase):
+    def test_sent_check_is_not_resent_before_the_server_confirms(self) -> None:
+        name = next(iter(Client.LOCATION_NAME_TO_ID))
+        location_id = Client.LOCATION_NAME_TO_ID[name]
+        sent: list = []
+
+        async def check_locations(ids):
+            sent.append(list(ids))
+            return set(ids)  # the server's reply never arrives, so missing_locations keeps it
+
+        ctx = SimpleNamespace(
+            slot_data={"locations": {name: {"address": Client.FLAGS_START, "mask": 1, "collected": 1}}},
+            missing_locations={location_id}, checked_locations=set(), locations_checked=set(), locations_info={},
+            check_locations=check_locations, slot=1,
+            location_names=SimpleNamespace(lookup_in_game=lambda _id: name),
+        )
+        client = Client.Z2RClient()
+        flags = bytes([1]) + bytes(Client.FLAGS_SIZE - 1)
+        for _ in range(3):
+            asyncio.run(client.location_check(ctx, flags))
+        self.assertEqual([ids for ids in sent if ids], [[location_id]])

@@ -700,11 +700,12 @@ class Z2RClient(BizHawkClient):
                 return
             flags, game_complete = state[0], state[1][0]
 
+            # first, so a new room's AP item stops showing the logo as soon as possible
+            await self.item_sprite_check(ctx, mode)
             if self.offline_hud_shown and mode == HUD_MODE and await self.write_hud_message(ctx, ""):
                 self.offline_hud_shown = False  # connected again: blank the offline text
             await self.location_check(ctx, flags)
             await self.hud_message_check(ctx, mode)
-            await self.item_sprite_check(ctx, mode)
             await self.event_check(ctx, flags)
             if game_complete & GAME_COMPLETE_MASK and not ctx.finished_game:
                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
@@ -720,7 +721,8 @@ class Z2RClient(BizHawkClient):
         checked: list[int] = []
         for name, data in ctx.slot_data["locations"].items():
             location_id = LOCATION_NAME_TO_ID.get(name)
-            if location_id is None or location_id not in ctx.missing_locations:
+            # locations_checked: already sent, so wait for the server instead of re-sending (and re-logging) each tick
+            if location_id is None or location_id not in ctx.missing_locations or location_id in ctx.locations_checked:
                 continue
             offset = data["address"] - FLAGS_START
             if not 0 <= offset < FLAGS_SIZE:
@@ -740,13 +742,13 @@ class Z2RClient(BizHawkClient):
                         f"({len(ctx.locations_checked)}/{len(ctx.missing_locations) + len(ctx.checked_locations)})")
 
     def pickup_text(self, ctx: "BizHawkClientContext", location_id: int) -> str | None:
-        """The pickup message for a location this slot just checked, or None if its item isn't known yet or is this
-        slot's own palace crystal (the game already shows the crystal going onto the statue)."""
+        """The pickup message for a location this slot just checked, or None if its item isn't known yet or is
+        a palace crystal, whoever owns it (the game already shows the crystal going onto the statue)."""
         info = ctx.locations_info.get(location_id)
         if info is None:
             return None
         item_name = ctx.item_names.lookup_in_slot(info.item, info.player)
-        if info.player == ctx.slot and item_name == "Crystal":
+        if item_name == "Crystal":
             return None
         return pickup_message(item_name, ctx.player_names.get(info.player, ""), info.player == ctx.slot)
 
